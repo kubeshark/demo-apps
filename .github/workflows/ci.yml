@@ -78,4 +78,4 @@ jobs:
         run: |
           kubectl -n demo-apps get pods -o wide
           kubectl -n demo-apps describe pods | tail -200
-          for d in gateway catalog inventory runner; do echo "== $d"; kubectl -n demo-apps logs deploy/demo-apps-$d --tail=50 || true; done
+          for p in $(kubectl -n demo-apps get pods -o name); do echo "== $p"; kubectl -n demo-apps logs $p --tail=60 --all-containers || true; done
