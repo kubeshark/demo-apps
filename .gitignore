@@ -1,0 +1,12 @@
+bin/
+dist/
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+node_modules/
+__pycache__/
+*.pyc
+target/
+.idea/
+.vscode/
