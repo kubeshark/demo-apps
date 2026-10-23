@@ -1,4 +1,4 @@
-SERVICES := gateway runner catalog inventory
+SERVICES := gateway runner catalog inventory orders notifier graphql live identity telco telco-server netprobe ledger
 CHART := deploy/chart
 MARKERS := $(wildcard internal/flows/*/markers.tsv)
 

@@ -69,8 +69,10 @@ jobs:
         run: |
           helm install demo-apps deploy/chart -n demo-apps --create-namespace --wait --timeout 5m \
             --set global.registry=kind.local --set global.imagePrefix= --set global.imageTag=smoke \
-            --set global.mirrorRegistry=docker.io --set global.mirrorPrefix=library \
-            --set flows.catalog.interval=2s --set flows.inventory.interval=2s
+            -f deploy/chart/ci/upstream-values.yaml \
+            --set flows.catalog.interval=2s --set flows.inventory.interval=2s --set flows.orders.interval=2s \
+            --set flows.graphql.interval=2s --set flows.websocket.interval=2s --set flows.identity.interval=2s \
+            --set flows.telco.interval=2s --set flows.netprobe.interval=2s
       - name: Run every flow in every variant
         run: hack/smoke.sh demo-apps demo-apps
       - name: Describe on failure

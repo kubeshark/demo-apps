@@ -39,7 +39,7 @@ helm upgrade --install demo-apps deploy/chart -n demo-apps --create-namespace \
 hack/smoke.sh demo-apps demo-apps   # every flow in every variant through the gateway API
 ```
 
-Until the mirror repositories exist, point the servers at their upstream registry:
-`--set global.mirrorRegistry=docker.io --set global.mirrorPrefix=library`.
+Until the mirror repositories exist, pull the servers from their upstream registries with
+`-f deploy/chart/ci/upstream-values.yaml`.
 
 Layout, invariants and how to add a flow: `AGENTS.md`.
