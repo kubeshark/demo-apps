@@ -50,7 +50,7 @@ renders the services and servers that flow needs.
 
 | Flow | Path | Servers | Error path | Slow path |
 |---|---|---|---|---|
-| catalog | gateway -> catalog (http) -> redis -> mysql | redis (requirepass), mysql (user/password) | query against the table named by the TABLE marker, mysql 1146, http 500 | `SELECT SLEEP(2)` |
+| catalog | gateway -> catalog (http) -> redis -> mysql | redis (requirepass, redigo AUTH on connect), mysql (user/password) | query against the table named by the TABLE marker, mysql 1146, http 500 | `SELECT SLEEP(2)` |
 | inventory | gateway -> inventory (grpc) -> mongodb | mongodb (root user, authSource=admin) | Reserve more than available, grpc FailedPrecondition | server-side 2s delay in GetStock |
 
 Marker values follow `KSKEEP-<FLOW>-<FIELD>-<REST>`; code selects values by FIELD

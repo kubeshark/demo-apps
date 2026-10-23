@@ -33,7 +33,8 @@ jobs:
         with:
           setup_only: true
           version: 1.75.0
-      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12 google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+      - run: go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
       - run: make check-generated
 
   chart:
@@ -68,7 +69,6 @@ jobs:
         run: |
           helm install demo-apps deploy/chart -n demo-apps --create-namespace --wait --timeout 5m \
             --set global.registry=kind.local --set global.imagePrefix= --set global.imageTag=smoke \
-            --set global.imagePullPolicy=Never \
             --set global.mirrorRegistry=docker.io --set global.mirrorPrefix=library \
             --set flows.catalog.interval=2s --set flows.inventory.interval=2s
       - name: Run every flow in every variant

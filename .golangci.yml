@@ -12,6 +12,7 @@ linters:
       exclude-functions:
         - (io.ReadCloser).Close
         - (*database/sql.Rows).Close
+        - (github.com/gomodule/redigo/redis.Conn).Close
 formatters:
   enable:
     - gofmt

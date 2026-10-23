@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/redis/go-redis/v9"
+	"github.com/gomodule/redigo/redis"
 
 	"github.com/kubeshark/demo-apps/internal/httpx"
 )
@@ -19,6 +19,9 @@ import (
 const (
 	cacheTTL  = 60 * time.Second
 	slowQuery = 2 * time.Second
+	// Connections are recycled so the authentication exchange of every
+	// server shows up periodically, not only once at startup.
+	connLifetime = 2 * time.Minute
 )
 
 type Product struct {
@@ -51,7 +54,7 @@ func suffix(v string) string {
 
 type Service struct {
 	db    *sql.DB
-	cache *redis.Client
+	cache *redis.Pool
 }
 
 type ServiceConfig struct {
@@ -66,16 +69,28 @@ func NewService(ctx context.Context, cfg ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(4)
+	db.SetConnMaxLifetime(connLifetime)
 	if err := httpx.Retry(ctx, "mysql", 3*time.Second, func() error { return db.PingContext(ctx) }); err != nil {
 		return nil, err
 	}
-	cache := redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddr,
-		Password: cfg.RedisPassword,
-		// RESP2 is the wire format the dissector decodes.
-		Protocol: 2,
-	})
-	if err := httpx.Retry(ctx, "redis", 3*time.Second, func() error { return cache.Ping(ctx).Err() }); err != nil {
+	// redigo speaks RESP2 and opens a connection with AUTH, which is the
+	// exchange the dissector decodes today.
+	cache := &redis.Pool{
+		MaxIdle:         2,
+		MaxConnLifetime: connLifetime,
+		DialContext: func(ctx context.Context) (redis.Conn, error) {
+			return redis.DialContext(ctx, "tcp", cfg.RedisAddr, redis.DialPassword(cfg.RedisPassword))
+		},
+	}
+	if err := httpx.Retry(ctx, "redis", 3*time.Second, func() error {
+		c, err := cache.GetContext(ctx)
+		if err != nil {
+			return err
+		}
+		defer c.Close()
+		_, err = c.Do("PING")
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	s := &Service{db: db, cache: cache}
@@ -153,29 +168,36 @@ func (s *Service) get(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	cache, err := s.cache.GetContext(ctx)
+	if err != nil {
+		httpx.Error(w, http.StatusBadGateway, "redis: "+err.Error())
+		return
+	}
+	defer cache.Close()
+
 	if q.Get("refresh") == "1" {
-		if err := s.cache.Del(ctx, key).Err(); err != nil {
+		if _, err := redis.DoContext(cache, ctx, "DEL", key); err != nil {
 			httpx.Error(w, http.StatusBadGateway, "redis: "+err.Error())
 			return
 		}
 	} else {
-		cached, err := s.cache.Get(ctx, key).Result()
+		cached, err := redis.Bytes(redis.DoContext(cache, ctx, "GET", key))
 		switch {
 		case err == nil:
 			var p Product
-			if json.Unmarshal([]byte(cached), &p) == nil {
+			if json.Unmarshal(cached, &p) == nil {
 				p.Source = "redis"
 				httpx.JSON(w, http.StatusOK, p)
 				return
 			}
-		case !errors.Is(err, redis.Nil):
+		case !errors.Is(err, redis.ErrNil):
 			httpx.Error(w, http.StatusBadGateway, "redis: "+err.Error())
 			return
 		}
 	}
 
 	var p Product
-	err := s.db.QueryRowContext(ctx, `SELECT sku, name, price_cents FROM products WHERE sku = ?`, sku).
+	err = s.db.QueryRowContext(ctx, `SELECT sku, name, price_cents FROM products WHERE sku = ?`, sku).
 		Scan(&p.SKU, &p.Name, &p.PriceCents)
 	if errors.Is(err, sql.ErrNoRows) {
 		httpx.Error(w, http.StatusNotFound, "no product "+sku)
@@ -186,7 +208,7 @@ func (s *Service) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body, _ := json.Marshal(p)
-	if err := s.cache.Set(ctx, key, body, cacheTTL).Err(); err != nil {
+	if _, err := redis.DoContext(cache, ctx, "SET", key, body, "EX", int(cacheTTL.Seconds())); err != nil {
 		httpx.Error(w, http.StatusBadGateway, "redis: "+err.Error())
 		return
 	}
