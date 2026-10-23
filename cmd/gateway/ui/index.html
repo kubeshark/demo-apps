@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kubeshark demo-apps</title>
+<link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+<header>
+  <h1>demo-apps</h1>
+  <p>Each card is one path through the services. Run it and watch the hops appear in Kubeshark.</p>
+</header>
+<main id="flows">
+{{range .}}
+<section class="flow" data-flow="{{.Name}}">
+  <h2>{{.Name}}</h2>
+  <p class="path">{{.Path}}</p>
+  <p>{{.Description}} <small>({{.Markers}} declared markers)</small></p>
+  <div class="actions">
+    <button data-variant="ok">Run</button>
+    <button data-variant="slow">Run slow</button>
+    <button data-variant="error">Run error</button>
+  </div>
+  <ol class="recent"></ol>
+</section>
+{{end}}
+</main>
+<script src="/ui/app.js"></script>
+</body>
+</html>

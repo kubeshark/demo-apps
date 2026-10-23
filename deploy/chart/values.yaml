@@ -1,0 +1,87 @@
+global:
+  # Images built in this repository resolve as <registry>/<imagePrefix>/<service>:<imageTag>.
+  # Third-party servers resolve as <registry>/<mirrorPrefix>/<name>:<tag>, copied by digest
+  # from mirrors.yaml at the repository root.
+  registry: public.ecr.aws/l3y1d4r0
+  imagePrefix: kubeshark/demo-apps
+  # Empty means the same registry as above. Set both to pull servers from their upstream
+  # registry instead of the mirror, e.g. mirrorRegistry: docker.io, mirrorPrefix: library.
+  mirrorRegistry: ""
+  mirrorPrefix: kubeshark/mirror
+  # Empty means the chart's appVersion.
+  imageTag: ""
+  imagePullPolicy: IfNotPresent
+
+# A flow is one narratable path. Enabling it renders the services and servers it needs.
+flows:
+  catalog:
+    enabled: true
+    interval: 10s
+  inventory:
+    enabled: true
+    interval: 10s
+
+# Drives every enabled flow on its interval through the gateway, the same way a UI click does.
+runner:
+  enabled: true
+  errorEvery: 10
+  slowEvery: 20
+  resources:
+    requests: {cpu: 10m, memory: 16Mi}
+    limits: {cpu: 100m, memory: 64Mi}
+
+gateway:
+  resources:
+    requests: {cpu: 50m, memory: 32Mi}
+    limits: {cpu: 250m, memory: 128Mi}
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: false
+    className: ""
+    host: demo-apps.example.com
+    annotations: {}
+    tls: []
+  # When set, the runner sends every second run to this URL instead of the in-cluster
+  # service, so ingress-ingested traffic appears alongside the direct path.
+  externalURL: ""
+
+services:
+  catalog:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+  inventory:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+
+# Every server requires authentication. Credentials are demo defaults rendered into
+# Secrets; set existingSecret to supply your own with the same keys.
+servers:
+  redis:
+    image: {name: redis, tag: 7.4.11, digest: ""}
+    password: demo-redis-password
+    existingSecret: ""
+    resources:
+      requests: {cpu: 20m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 128Mi}
+  mysql:
+    image: {name: mysql, tag: 8.4.13, digest: ""}
+    database: catalog
+    user: catalog
+    password: demo-mysql-password
+    rootPassword: demo-mysql-root-password
+    existingSecret: ""
+    resources:
+      requests: {cpu: 100m, memory: 384Mi}
+      limits: {cpu: 500m, memory: 768Mi}
+  mongodb:
+    image: {name: mongo, tag: 8.0.34, digest: ""}
+    rootUser: root
+    rootPassword: demo-mongodb-password
+    existingSecret: ""
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 512Mi}

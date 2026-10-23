@@ -1,0 +1,88 @@
+{{- if include "demo-apps.anyFlow" . }}
+{{- $ctx := dict "root" . "name" "gateway" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-gateway
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: gateway
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" . | nindent 12 }}
+          env:
+            {{- if .Values.flows.catalog.enabled }}
+            - name: CATALOG_URL
+              value: http://{{ .Release.Name }}-catalog:8080
+            {{- end }}
+            {{- if .Values.flows.inventory.enabled }}
+            - name: INVENTORY_ADDR
+              value: {{ .Release.Name }}-inventory:9090
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-gateway
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  type: {{ .Values.gateway.service.type }}
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.gateway.service.port }}
+      targetPort: http
+{{- if .Values.gateway.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-gateway
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+  {{- with .Values.gateway.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.gateway.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.gateway.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.gateway.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-gateway
+                port:
+                  name: http
+{{- end }}
+{{- end }}
