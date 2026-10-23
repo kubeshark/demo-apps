@@ -1,0 +1,78 @@
+{{- if include "demo-apps.need" (merge (dict "component" "mysql") .) }}
+{{- $ctx := dict "root" . "name" "mysql" }}
+{{- $s := .Values.servers.mysql }}
+{{- $secret := include "demo-apps.secretName" (dict "root" . "name" "mysql" "server" $s) }}
+{{- if not $s.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-mysql
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+stringData:
+  password: {{ $s.password | quote }}
+  root-password: {{ $s.rootPassword | quote }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mysql
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: mysql
+          image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: MYSQL_DATABASE
+              value: {{ $s.database }}
+            - name: MYSQL_USER
+              value: {{ $s.user }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ $secret }}, key: password}
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ $secret }}, key: root-password}
+          ports:
+            - name: mysql
+              containerPort: 3306
+          readinessProbe:
+            tcpSocket: {port: mysql}
+            initialDelaySeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mysql
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+{{- end }}

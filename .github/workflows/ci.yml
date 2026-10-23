@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: ['*']
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+          version: 1.75.0
+      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+      - run: go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+      - run: make check-generated
+
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: azure/setup-helm@v4
+      - run: make chart-lint
+      - run: make budget
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: [go, chart]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: ko-build/setup-ko@v0.9
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: smoke
+      - name: Build images into kind
+        env:
+          KO_DOCKER_REPO: kind.local
+          KIND_CLUSTER_NAME: smoke
+        run: make images TAG=smoke
+      - name: Install chart
+        run: |
+          helm install demo-apps deploy/chart -n demo-apps --create-namespace --wait --timeout 5m \
+            --set global.registry=kind.local --set global.imagePrefix= --set global.imageTag=smoke \
+            --set global.mirrorRegistry=docker.io --set global.mirrorPrefix=library \
+            --set flows.catalog.interval=2s --set flows.inventory.interval=2s
+      - name: Run every flow in every variant
+        run: hack/smoke.sh demo-apps demo-apps
+      - name: Describe on failure
+        if: failure()
+        run: |
+          kubectl -n demo-apps get pods -o wide
+          kubectl -n demo-apps describe pods | tail -200
+          for p in $(kubectl -n demo-apps get pods -o name); do echo "== $p"; kubectl -n demo-apps logs $p --tail=60 --all-containers || true; done

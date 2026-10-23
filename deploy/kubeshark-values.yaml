@@ -1,0 +1,28 @@
+# Kubeshark chart values that let every demo-apps flow show up.
+# helm upgrade --install kubeshark kubeshark/kubeshark -f deploy/kubeshark-values.yaml
+tap:
+  # The chart default omits sctp; the telco flows need it.
+  enabledDissectors:
+    - amqp
+    - dns
+    - http
+    - icmp
+    - kafka
+    - mongodb
+    - mysql
+    - postgresql
+    - redis
+    - ws
+    - tlsx
+    - ldap
+    - radius
+    - diameter
+    - sctp
+    - udp-flow
+    - tcp-flow
+    - udp-conn
+    - tcp-conn
+  capture:
+    dissection:
+      # Without a UI session the hub stops dissection after a few minutes; 0s keeps it on.
+      stopAfter: 0s

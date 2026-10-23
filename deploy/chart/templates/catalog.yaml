@@ -1,0 +1,65 @@
+{{- if include "demo-apps.need" (merge (dict "component" "catalog") .) }}
+{{- $ctx := dict "root" . "name" "catalog" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-catalog
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: catalog
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" . | nindent 12 }}
+          env:
+            - name: MYSQL_ADDR
+              value: {{ .Release.Name }}-mysql:3306
+            - name: MYSQL_DATABASE
+              value: {{ .Values.servers.mysql.database }}
+            - name: MYSQL_USER
+              value: {{ .Values.servers.mysql.user }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "mysql" "server" .Values.servers.mysql) }}
+                  key: password
+            - name: REDIS_ADDR
+              value: {{ .Release.Name }}-redis:6379
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "redis" "server" .Values.servers.redis) }}
+                  key: password
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          resources:
+            {{- toYaml .Values.services.catalog.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-catalog
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- end }}

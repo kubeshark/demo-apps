@@ -1,0 +1,11 @@
+body { font: 15px/1.4 system-ui, sans-serif; margin: 0; padding: 1rem 2rem; color: #1d2733; background: #f6f8fa; }
+header h1 { margin: 0 0 .25rem; }
+main { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 1rem; }
+section.flow { background: #fff; border: 1px solid #d8dee4; border-radius: 8px; padding: 1rem; }
+section.flow h2 { margin: 0; font-size: 1.1rem; }
+.path { font-family: ui-monospace, monospace; color: #57606a; margin: .25rem 0; }
+.actions button { margin-right: .5rem; padding: .35rem .8rem; }
+ol.recent { padding-left: 1rem; margin: .75rem 0 0; font-size: .9rem; }
+ol.recent > li { margin-bottom: .5rem; border-left: 3px solid #2da44e; padding-left: .5rem; }
+ol.recent > li.failed { border-left-color: #cf222e; }
+ol.recent ul { margin: .2rem 0 0; padding-left: 1rem; color: #57606a; }

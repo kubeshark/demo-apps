@@ -1,0 +1,60 @@
+{{- if and .Values.runner.enabled (include "demo-apps.anyFlow" .) }}
+{{- $ctx := dict "root" . "name" "runner" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-runner
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+data:
+  runner.yaml: |
+    errorEvery: {{ .Values.runner.errorEvery }}
+    slowEvery: {{ .Values.runner.slowEvery }}
+    flows:
+      {{- range $flow, $cfg := .Values.flows }}
+      {{- if $cfg.enabled }}
+      {{ $flow }}:
+        interval: {{ $cfg.interval }}
+      {{- end }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-runner
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: runner
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" . | nindent 12 }}
+          env:
+            - name: GATEWAY_URL
+              value: http://{{ .Release.Name }}-gateway:{{ .Values.gateway.service.port }}
+            {{- with .Values.gateway.externalURL }}
+            - name: EXTERNAL_URL
+              value: {{ . | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/demo-apps
+              readOnly: true
+          resources:
+            {{- toYaml .Values.runner.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-runner
+{{- end }}

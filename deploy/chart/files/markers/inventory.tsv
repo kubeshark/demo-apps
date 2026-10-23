@@ -1,0 +1,9 @@
+keep	KSKEEP-INVENTORY-SKU-ANVIL	stock sku: grpc request field, mongodb document key
+keep	KSKEEP-INVENTORY-SKU-ROPE	stock sku, same carriers
+keep	KSKEEP-INVENTORY-SKU-LANTERN	stock sku, same carriers
+keep	KSKEEP-INVENTORY-NAME-ANVIL	stock item name: mongodb document, grpc response field
+keep	KSKEEP-INVENTORY-NAME-ROPE	stock item name, same carriers
+keep	KSKEEP-INVENTORY-NAME-LANTERN	stock item name, same carriers
+keep	KSKEEP-INVENTORY-WAREHOUSE-NORTH	warehouse: mongodb document, grpc response field
+keep	KSKEEP-INVENTORY-ORDER-	order id prefix: grpc Reserve request field and mongodb reservation document; a run counter follows it
+keep	KSKEEP-INVENTORY-USER-BOB	x-demo-user grpc metadata on every call

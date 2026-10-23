@@ -1,0 +1,73 @@
+{{- if include "demo-apps.need" (merge (dict "component" "mongodb") .) }}
+{{- $ctx := dict "root" . "name" "mongodb" }}
+{{- $s := .Values.servers.mongodb }}
+{{- if not $s.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-mongodb
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+stringData:
+  password: {{ $s.rootPassword | quote }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mongodb
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: mongodb
+          image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: {{ $s.rootUser }}
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "mongodb" "server" $s) }}
+                  key: password
+          ports:
+            - name: mongodb
+              containerPort: 27017
+          readinessProbe:
+            tcpSocket: {port: mongodb}
+            initialDelaySeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mongodb
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: mongodb
+{{- end }}

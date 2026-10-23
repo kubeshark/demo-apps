@@ -1,0 +1,17 @@
+{{- if include "demo-apps.anyFlow" . }}
+{{- $ctx := dict "root" . "name" "markers" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-markers
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+data:
+  {{- range $path, $_ := .Files.Glob "files/markers/*.tsv" }}
+  {{- $flow := base $path | trimSuffix ".tsv" }}
+  {{- if (index $.Values.flows $flow).enabled }}
+  {{ base $path }}: |
+    {{- $.Files.Get $path | trimSuffix "\n" | nindent 4 }}
+  {{- end }}
+  {{- end }}
+{{- end }}
