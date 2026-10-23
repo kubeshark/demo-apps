@@ -78,7 +78,8 @@ servers:
       requests: {cpu: 100m, memory: 384Mi}
       limits: {cpu: 500m, memory: 768Mi}
   mongodb:
-    image: {name: mongo, tag: 8.0.34, digest: ""}
+    # 8.x refuses to start on Linux 6.19 through 7.0.13 (vendored tcmalloc); 7.0 runs everywhere.
+    image: {name: mongo, tag: 7.0.45, digest: ""}
     rootUser: root
     rootPassword: demo-mongodb-password
     existingSecret: ""
