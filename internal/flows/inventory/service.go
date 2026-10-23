@@ -60,6 +60,15 @@ func (s *Service) Register(srv *grpc.Server) {
 	inventoryv1.RegisterInventoryServiceServer(srv, s)
 }
 
+func (s *Service) declared(sku string) bool {
+	for _, it := range Items() {
+		if it.SKU == sku {
+			return true
+		}
+	}
+	return false
+}
+
 type stockDoc struct {
 	SKU       string `bson:"_id"`
 	Name      string `bson:"name"`
@@ -70,6 +79,13 @@ type stockDoc struct {
 func (s *Service) GetStock(ctx context.Context, req *inventoryv1.GetStockRequest) (*inventoryv1.GetStockResponse, error) {
 	var doc stockDoc
 	err := s.stock.FindOne(ctx, bson.M{"_id": req.GetSku()}).Decode(&doc)
+	if errors.Is(err, mongo.ErrNoDocuments) && s.declared(req.GetSku()) {
+		// The server lost its data (it keeps none across restarts); seed again
+		// rather than answer NotFound for an item the flow declares.
+		if err = s.seed(ctx); err == nil {
+			err = s.stock.FindOne(ctx, bson.M{"_id": req.GetSku()}).Decode(&doc)
+		}
+	}
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, status.Errorf(codes.NotFound, "no stock item %s", req.GetSku())
 	}

@@ -197,8 +197,14 @@ func (s *Service) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var p Product
-	err = s.db.QueryRowContext(ctx, `SELECT sku, name, price_cents FROM products WHERE sku = ?`, sku).
-		Scan(&p.SKU, &p.Name, &p.PriceCents)
+	err = s.lookup(ctx, sku, &p)
+	if lostData(err) && s.declared(sku) {
+		// The server lost its data (it keeps none across restarts); seed again
+		// rather than answer 404 for a product the flow declares.
+		if err = s.seed(ctx); err == nil {
+			err = s.lookup(ctx, sku, &p)
+		}
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		httpx.Error(w, http.StatusNotFound, "no product "+sku)
 		return
@@ -214,4 +220,25 @@ func (s *Service) get(w http.ResponseWriter, r *http.Request) {
 	}
 	p.Source = "mysql"
 	httpx.JSON(w, http.StatusOK, p)
+}
+
+func (s *Service) lookup(ctx context.Context, sku string, p *Product) error {
+	return s.db.QueryRowContext(ctx, `SELECT sku, name, price_cents FROM products WHERE sku = ?`, sku).
+		Scan(&p.SKU, &p.Name, &p.PriceCents)
+}
+
+func (s *Service) declared(sku string) bool {
+	for _, p := range Products() {
+		if p.SKU == sku {
+			return true
+		}
+	}
+	return false
+}
+
+// lostData is true for the two shapes a fresh mysql takes: no row, or no
+// products table at all.
+func lostData(err error) bool {
+	var merr *mysql.MySQLError
+	return errors.Is(err, sql.ErrNoRows) || (errors.As(err, &merr) && merr.Number == 1146)
 }
