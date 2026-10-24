@@ -1,0 +1,7 @@
+keep	KSKEEP-LEDGER-ACCOUNT-CASH	account name: request path at the gateway and the ledger, mssql row and parameter
+keep	KSKEEP-LEDGER-ACCOUNT-SALES	account name, same carriers
+keep	KSKEEP-LEDGER-ACCOUNT-TAX	account name, same carriers
+keep	KSKEEP-LEDGER-OPENING-BALANCE	memo of the seeded opening entry of every account, mssql row
+keep	KSKEEP-LEDGER-MEMO-INVOICE	memo of every posted entry pair: json request body, mssql parameter
+keep	KSKEEP-LEDGER-USER-BOB	X-Demo-User request header on every hop
+keep	KSKEEP-LEDGER-CHECK-NONZERO	mssql check constraint name violated on the error path, present in the mssql error and the http 500 body

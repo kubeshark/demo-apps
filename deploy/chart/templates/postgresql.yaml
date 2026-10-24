@@ -1,0 +1,77 @@
+{{- if include "demo-apps.need" (merge (dict "component" "postgresql") .) }}
+{{- $ctx := dict "root" . "name" "postgresql" }}
+{{- $s := .Values.servers.postgresql }}
+{{- $secret := include "demo-apps.secretName" (dict "root" . "name" "postgresql" "server" $s) }}
+{{- if not $s.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-postgresql
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+stringData:
+  password: {{ $s.password | quote }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-postgresql
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: postgresql
+          image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: POSTGRES_DB
+              value: {{ $s.database }}
+            - name: POSTGRES_USER
+              value: {{ $s.user }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ $secret }}, key: password}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, {{ $s.user }}, -d, {{ $s.database }}]
+            initialDelaySeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-postgresql
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+{{- end }}

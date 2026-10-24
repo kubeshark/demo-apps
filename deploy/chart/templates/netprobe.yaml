@@ -1,0 +1,64 @@
+{{- if include "demo-apps.need" (merge (dict "component" "netprobe") .) }}
+{{- $ctx := dict "root" . "name" "netprobe" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-netprobe
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      securityContext:
+        # ICMP echo through a datagram socket needs the group in this range;
+        # a raw socket would need a capability a non-root process cannot keep.
+        sysctls:
+          - name: net.ipv4.ping_group_range
+            value: "0 2147483647"
+      containers:
+        - name: netprobe
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" . | nindent 12 }}
+          env:
+            - name: DNS_ADDR
+              value: {{ .Release.Name }}-coredns:53
+            - name: DNS_ZONE
+              value: {{ .Values.servers.coredns.zone }}
+            - name: NODE_IP
+              valueFrom:
+                fieldRef: {fieldPath: status.hostIP}
+            - name: PING_TARGETS
+              value: {{ .Release.Name }}-coredns-pods,$(NODE_IP)
+            - name: EGRESS_URLS
+              value: {{ join "," .Values.flows.netprobe.egressURLs | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          resources:
+            {{- toYaml .Values.services.netprobe.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-netprobe
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- end }}

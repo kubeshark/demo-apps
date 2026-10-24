@@ -1,0 +1,65 @@
+{{- if include "demo-apps.need" (merge (dict "component" "identity") .) }}
+{{- $ctx := dict "root" . "name" "identity" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-identity
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: identity
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" . | nindent 12 }}
+          env:
+            - name: LDAP_ADDR
+              value: {{ .Release.Name }}-openldap:389
+            - name: LDAP_BASE_DN
+              value: dc={{ .Values.servers.openldap.domain | replace "." ",dc=" }}
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "openldap" "server" .Values.servers.openldap) }}
+                  key: admin-password
+            - name: RADIUS_AUTH_ADDR
+              value: {{ .Release.Name }}-freeradius:1812
+            - name: RADIUS_ACCT_ADDR
+              value: {{ .Release.Name }}-freeradius:1813
+            - name: RADIUS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "freeradius" "server" .Values.servers.freeradius) }}
+                  key: secret
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          resources:
+            {{- toYaml .Values.services.identity.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-identity
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- end }}

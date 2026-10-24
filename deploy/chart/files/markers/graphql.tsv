@@ -1,0 +1,6 @@
+keep	KSKEEP-GRAPHQL-AUTHOR-AUSTEN	author name: graphql variables, postgresql authors row, json response body
+keep	KSKEEP-GRAPHQL-AUTHOR-ORWELL	author name, same carriers
+keep	KSKEEP-GRAPHQL-TITLE-AUSTEN	book title: postgresql books row, graphql response field
+keep	KSKEEP-GRAPHQL-TITLE-ORWELL	book title, same carriers
+keep	KSKEEP-GRAPHQL-ADDED-	title prefix of the addBook mutation variable and the inserted books row; a run counter follows it
+keep	KSKEEP-GRAPHQL-USER-CAROL	X-Demo-User request header on every hop

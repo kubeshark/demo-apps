@@ -28,9 +28,19 @@ There is no generated aggregate manifest. The chart is the single description of
 | runner | none | calls the gateway on each flow's interval; config from ConfigMap, reloaded every 5s |
 | catalog | 8080 http | redis cache in front of mysql |
 | inventory | 9090 grpc | stock and reservations in mongodb |
+| orders | 8080 http | orders in postgresql, publishes each order to kafka |
+| notifier | 8080 http | kafka consumer group, relays to rabbitmq and consumes it back; `GET /notifications/recent` |
+| graphql | 8080 http | GraphQL API over JSON in front of postgresql |
+| live | 8080 http/ws | WebSocket session: subscribe, server pushes, ping, unsubscribe |
+| identity | 8080 http | ldap bind/search/modify, then radius access and accounting |
+| telco | 8080 http | diameter client over tcp and sctp, sctp echo client |
+| telco-server | 3868 tcp+sctp diameter, 3869 sctp echo | diameter server and sctp echo, built here |
+| netprobe | 8080 http | dns against the demo zone, icmp echo (NET_RAW), https egress |
+| ledger | 8080 http | double-entry ledger in mssql (off by default) |
 
-A flow is registered in the gateway when the address of its first hop is set
-(`CATALOG_URL`, `INVENTORY_ADDR`); the chart sets exactly the addresses of the enabled flows.
+A flow registers itself in `init()` (`flowrun.Register`) with the environment variable that carries
+the address of its first hop; `internal/flows/all` imports every flow, and the gateway constructs
+each one whose variable is set. The chart sets exactly the variables of the enabled flows.
 The runner's variant schedule: every `slowEvery`-th run is slow, every `errorEvery`-th is the
 error path, the rest are ok. With `gateway.externalURL` set, every second run goes there.
 
@@ -52,6 +62,13 @@ renders the services and servers that flow needs.
 |---|---|---|---|---|
 | catalog | gateway -> catalog (http) -> redis -> mysql | redis (requirepass, redigo AUTH on connect), mysql (user/password) | query against the table named by the TABLE marker, mysql 1146, http 500 | `SELECT SLEEP(2)` |
 | inventory | gateway -> inventory (grpc) -> mongodb | mongodb (root user, authSource=admin) | Reserve more than available, grpc FailedPrecondition | server-side 2s delay in GetStock |
+| orders | gateway -> orders (http) -> postgresql -> kafka -> notifier -> rabbitmq (amqp) | postgresql (user/password, sslmode=disable), kafka (SASL/PLAIN on the client listener, client pinned to kversion 3.0.0), rabbitmq (user/password) | POST with quantity 0, postgresql CHECK violation 23514, http 422 | `SELECT pg_sleep(2)` |
+| graphql | gateway -> graphql (http, graphql) -> postgresql | postgresql (user/password, sslmode=disable) | query selecting a field the Book type lacks, graphql errors array, http 400 | `SELECT pg_sleep(2)` in the books resolver |
+| websocket | gateway -> live (websocket) | none | subscribe to the MISSING channel, server closes 1008 with the REASON marker | server delays its first push by 2s |
+| identity | gateway -> identity (http) -> openldap (ldap) + freeradius (radius) | openldap (cn=admin bind for seeding, users bind with their own password; ACL replaced at bootstrap so users read the tree and write their own entry), freeradius (shared secret, Message-Authenticator required, users file from the markers) | wrong password: ldap invalidCredentials 49 and radius Access-Reject, http 401 | 2s pause in identity between the ldap and radius hops |
+| telco | gateway -> telco (http) -> telco-server (diameter over tcp, diameter over sctp, sctp echo) | telco-server (built here; CER from a realm other than demo.local is answered 3010) | CCR with the BADCONTEXT Service-Context-Id, CCA Result-Code 5012, http 502 | server holds the CCA of an UPDATE_REQUEST for 2s |
+| netprobe | gateway -> netprobe (http) -> coredns (dns A, AAAA, SRV, TXT, NXDOMAIN), icmp echo, https egress | coredns (authoritative demo zone generated from the markers) | NXDOMAIN lookup plus an egress GET expecting 404, http 502 | 5 icmp echoes at 500ms |
+| ledger | gateway -> ledger (http) -> mssql | mssql (sa password, encrypt=disable); off by default, no TDS dissector yet so it shows as tcp | zero amount, CHECK constraint 547, http 500 | `WAITFOR DELAY '00:00:02'` |
 
 Marker values follow `KSKEEP-<FLOW>-<FIELD>-<REST>`; code selects values by FIELD
 (`Markers.Field("SKU")`, `Markers.One("USER")`), never by literal. Seed data is written on service
@@ -59,9 +76,17 @@ start, idempotently, from the markers.
 
 ## Dissector constraints the drivers respect
 
-- Redis: RESP2 only, clients must not negotiate RESP3.
-- MongoDB: wire compression off.
-- PostgreSQL plaintext flows use `sslmode=disable`; TLS variants rely on the tracer.
-- Kafka: client API versions pinned to what the dissector decodes; the unpinned scenario is off by default.
+- Redis: RESP2 only, and the first command on a connection must not be `HELLO`; go-redis v9 always
+  sends it, so the catalog uses redigo (`AUTH` on connect).
+- MongoDB: wire compression off. MongoDB 8.x refuses to start on Linux 6.19 through 7.0.13, so the
+  server is pinned to 7.0.
+- PostgreSQL plaintext flows use `sslmode=disable`; TLS variants rely on the tracer. The orders flow
+  issues both simple-protocol and extended-protocol statements.
+- Kafka: franz-go `MaxVersions(kversion.V3_0_0())` (ApiVersions 3, Metadata 11, Fetch 12, Produce 9),
+  the newest set the dissector decodes. `flows.orders.kafkaPinned=false` lets the client negotiate
+  freely; ApiVersions, Metadata and SASL entries then disappear from the capture.
+- Kafka SASL in `apache/kafka-native` needs 4.4.0 or newer.
 - HTTP/2 needs the client preface or an `h2c` upgrade; WebSocket enters only via an HTTP/1.1 upgrade.
 - LDAP: no StartTLS; LDAPS relies on the tracer.
+- RADIUS accounting goes to 1813; only 1812 is decoded today, so accounting shows as udp.
+- Diameter over SCTP and the SCTP echo need SCTP through the CNI (Cilium: `enable-sctp: "true"`).

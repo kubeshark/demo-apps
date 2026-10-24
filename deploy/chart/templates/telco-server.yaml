@@ -1,0 +1,62 @@
+{{- if include "demo-apps.need" (merge (dict "component" "telco-server") .) }}
+{{- $ctx := dict "root" . "name" "telco-server" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-telco-server
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: telco-server
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" . | nindent 12 }}
+          ports:
+            - name: diameter-tcp
+              containerPort: 3868
+              protocol: TCP
+            - name: diameter-sctp
+              containerPort: 3868
+              protocol: SCTP
+            - name: echo-sctp
+              containerPort: 3869
+              protocol: SCTP
+          readinessProbe:
+            tcpSocket: {port: diameter-tcp}
+          resources:
+            {{- toYaml .Values.services.telcoServer.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-telco-server
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: diameter-tcp
+      port: 3868
+      targetPort: diameter-tcp
+      protocol: TCP
+    - name: diameter-sctp
+      port: 3868
+      targetPort: diameter-sctp
+      protocol: SCTP
+    - name: echo-sctp
+      port: 3869
+      targetPort: echo-sctp
+      protocol: SCTP
+{{- end }}
