@@ -51,17 +51,35 @@ make                    # build, test, lint, chart lint, resource budget
 make check-generated    # proto codegen and chart marker copies are committed; this proves they match
 ```
 
-Go images are built by [ko](https://ko.build), one per `cmd/<service>`:
+Go images are built by [ko](https://ko.build), one per `cmd/<service>`; the Java, Python and Node
+clients by docker from `clients/<lang>/Dockerfile`:
 
 ```bash
 export KO_DOCKER_REPO=<registry>/kubeshark/demo-apps
 make images TAG=dev-1
+make client-images REGISTRY=<registry>/kubeshark/demo-apps TAG=dev-1   # then docker push them
 helm upgrade --install demo-apps deploy/chart -n demo-apps --create-namespace \
   --set global.registry=<registry> --set global.imageTag=dev-1
-hack/smoke.sh demo-apps demo-apps   # every flow in every variant through the gateway API
+hack/smoke.sh demo-apps demo-apps   # every flow in every variant, and every TLS client
 ```
 
-Until the mirror repositories exist, pull the servers from their upstream registries with
+To pull the third-party servers from their upstream registries instead of the mirror, add
 `-f deploy/chart/ci/upstream-values.yaml`.
+
+## Publishing
+
+`terraform/` creates the ECR Public repositories (derived from `cmd/`, `clients/` and the chart's
+server images) and the `demo-apps-github-actions` role. Apply it with credentials for the account
+that owns the registry alias, then set the repository variable `AWS_ROLE_ARN` to its `role_arn`
+output:
+
+```bash
+cd terraform && terraform init && terraform plan && terraform apply
+gh variable set AWS_ROLE_ARN --body "$(terraform output -raw role_arn)"
+```
+
+From then on every branch push publishes images tagged `<branch>-<sha7>`, a `vX.Y.Z` tag publishes
+images and the chart, and the Mirror workflow keeps `kubeshark/mirror/*` in step with the chart's
+pinned server digests (run it once by hand after the first apply).
 
 Layout, invariants and how to add a flow: `AGENTS.md`.

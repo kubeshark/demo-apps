@@ -1,0 +1,34 @@
+name: Mirror
+
+# Copies every third-party server image pinned in deploy/chart/values.yaml into the
+# mirror registry, by digest. Skipped until the repository variable AWS_ROLE_ARN is set.
+on:
+  push:
+    branches: [master]
+    paths:
+      - deploy/chart/values.yaml
+      - deploy/chart/ci/upstream-values.yaml
+      - hack/mirror.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  mirror:
+    if: vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: imjasonh/setup-crane@v0.4
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Copy
+        env:
+          REGISTRY: ${{ vars.ECR_PUBLIC_REGISTRY || 'public.ecr.aws/l3y1d4r0' }}
+        run: |
+          aws ecr-public get-login-password | crane auth login public.ecr.aws -u AWS --password-stdin
+          python3 hack/mirror.py --dest "$REGISTRY/kubeshark/mirror"

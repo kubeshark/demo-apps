@@ -74,7 +74,9 @@ func (p *producer) get() (*kgo.Client, error) {
 		p.client.Close()
 		p.client = nil
 	}
-	cl, err := kgo.NewClient(p.cfg.opts(kgo.DefaultProduceTopic(Topic))...)
+	// A broker that restarted has lost the topic (it keeps no data); asking for
+	// auto-creation in Metadata brings it back instead of blocking until timeout.
+	cl, err := kgo.NewClient(p.cfg.opts(kgo.DefaultProduceTopic(Topic), kgo.AllowAutoTopicCreation())...)
 	if err != nil {
 		return nil, err
 	}
