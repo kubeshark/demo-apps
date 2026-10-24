@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -30,18 +31,36 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	addr := httpx.Env("LISTEN_ADDR", ":9090")
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
+
+	servers := []*grpc.Server{grpc.NewServer()}
+	listeners := []string{httpx.Env("LISTEN_ADDR", ":9090")}
+	if cert := os.Getenv("TLS_CERT_FILE"); cert != "" {
+		creds, err := credentials.NewServerTLSFromFile(cert, os.Getenv("TLS_KEY_FILE"))
+		if err != nil {
+			return err
+		}
+		servers = append(servers, grpc.NewServer(grpc.Creds(creds)))
+		listeners = append(listeners, httpx.Env("TLS_LISTEN_ADDR", ":9443"))
 	}
-	srv := grpc.NewServer()
-	svc.Register(srv)
-	healthv1.RegisterHealthServer(srv, health.NewServer())
-	go func() {
-		<-ctx.Done()
+
+	errc := make(chan error, len(servers))
+	for i, srv := range servers {
+		svc.Register(srv)
+		healthv1.RegisterHealthServer(srv, health.NewServer())
+		lis, err := net.Listen("tcp", listeners[i])
+		if err != nil {
+			return err
+		}
+		slog.Info("listening", "addr", listeners[i], "tls", i > 0)
+		go func() { errc <- srv.Serve(lis) }()
+	}
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+	}
+	for _, srv := range servers {
 		srv.GracefulStop()
-	}()
-	slog.Info("listening", "addr", addr)
-	return srv.Serve(lis)
+	}
+	return nil
 }

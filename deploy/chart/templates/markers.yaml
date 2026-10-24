@@ -9,7 +9,13 @@ metadata:
 data:
   {{- range $path, $_ := .Files.Glob "files/markers/*.tsv" }}
   {{- $flow := base $path | trimSuffix ".tsv" }}
-  {{- if (index $.Values.flows $flow).enabled }}
+  {{- $on := false }}
+  {{- if eq $flow "clients" }}
+    {{- $on = $.Values.tls.enabled }}
+  {{- else }}
+    {{- $on = (index $.Values.flows $flow).enabled }}
+  {{- end }}
+  {{- if $on }}
   {{ base $path }}: |
     {{- $.Files.Get $path | trimSuffix "\n" | nindent 4 }}
   {{- end }}

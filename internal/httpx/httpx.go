@@ -48,12 +48,32 @@ func (r *recorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 // Serve runs the server until SIGTERM/SIGINT, then drains for up to 10s.
 func Serve(addr string, h http.Handler) error {
-	srv := &http.Server{Addr: addr, Handler: Logging(h), ReadHeaderTimeout: 10 * time.Second}
+	return ServeTLS(addr, TLSListener{}, h)
+}
+
+// TLSListener is an optional second listener serving the same handler over
+// TLS. It is disabled when Addr is empty.
+type TLSListener struct {
+	Addr     string
+	CertFile string
+	KeyFile  string
+}
+
+// ServeTLS is Serve plus an optional TLS listener sharing the handler.
+func ServeTLS(addr string, tl TLSListener, h http.Handler) error {
+	servers := []*http.Server{{Addr: addr, Handler: Logging(h), ReadHeaderTimeout: 10 * time.Second}}
+	if tl.Addr != "" {
+		servers = append(servers, &http.Server{Addr: tl.Addr, Handler: Logging(h), ReadHeaderTimeout: 10 * time.Second})
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-	errc := make(chan error, 1)
-	go func() { errc <- srv.ListenAndServe() }()
+	errc := make(chan error, len(servers))
+	go func() { errc <- servers[0].ListenAndServe() }()
 	slog.Info("listening", "addr", addr)
+	if tl.Addr != "" {
+		go func() { errc <- servers[1].ListenAndServeTLS(tl.CertFile, tl.KeyFile) }()
+		slog.Info("listening", "addr", tl.Addr, "tls", true)
+	}
 	select {
 	case err := <-errc:
 		return err
@@ -61,8 +81,10 @@ func Serve(addr string, h http.Handler) error {
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
-		return err
+	for _, srv := range servers {
+		if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
 	}
 	return nil
 }

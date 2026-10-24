@@ -36,6 +36,7 @@ spec:
         - name: mysql
           image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["--performance-schema=OFF", "--innodb-buffer-pool-size=64M"]
           env:
             - name: MYSQL_DATABASE
               value: {{ $s.database }}

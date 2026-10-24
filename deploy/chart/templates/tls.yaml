@@ -1,0 +1,29 @@
+{{- if and .Values.tls.enabled (not .Values.tls.existingSecret) (include "demo-apps.anyFlow" .) }}
+{{- $name := printf "%s-tls" .Release.Name }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $name }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "demo-apps.labels" (dict "root" . "name" "tls") | nindent 4 }}
+type: kubernetes.io/tls
+data:
+{{- if and $existing (index $existing.data "ca.crt") }}
+  ca.crt: {{ index $existing.data "ca.crt" }}
+  tls.crt: {{ index $existing.data "tls.crt" }}
+  tls.key: {{ index $existing.data "tls.key" }}
+{{- else }}
+  {{- $ca := genCA "demo-apps CA" 3650 }}
+  {{- $hosts := list }}
+  {{- range $svc := list "gateway" "inventory" "postgresql" }}
+    {{- $n := printf "%s-%s" $.Release.Name $svc }}
+    {{- $hosts = concat $hosts (list $n (printf "%s.%s" $n $.Release.Namespace) (printf "%s.%s.svc" $n $.Release.Namespace) (printf "%s.%s.svc.cluster.local" $n $.Release.Namespace)) }}
+  {{- end }}
+  {{- with .Values.gateway.ingress.host }}{{ $hosts = append $hosts . }}{{ end }}
+  {{- $cert := genSignedCert (printf "%s-gateway" .Release.Name) nil $hosts 3650 $ca }}
+  ca.crt: {{ $ca.Cert | b64enc }}
+  tls.crt: {{ $cert.Cert | b64enc }}
+  tls.key: {{ $cert.Key | b64enc }}
+{{- end }}
+{{- end }}
