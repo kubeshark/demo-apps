@@ -59,13 +59,35 @@ spec:
             - name: LEDGER_URL
               value: http://{{ .Release.Name }}-ledger:8080
             {{- end }}
+            {{- if .Values.tls.enabled }}
+            - name: TLS_CERT_FILE
+              value: /etc/demo-apps/tls/tls.crt
+            - name: TLS_KEY_FILE
+              value: /etc/demo-apps/tls/tls.key
+            {{- end }}
           ports:
             - name: http
               containerPort: 8080
+            {{- if .Values.tls.enabled }}
+            - name: https
+              containerPort: 8443
+            {{- end }}
           readinessProbe:
             httpGet: {path: /healthz, port: http}
+          {{- if .Values.tls.enabled }}
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/demo-apps/tls
+              readOnly: true
+          {{- end }}
           resources:
             {{- toYaml .Values.gateway.resources | nindent 12 }}
+      {{- if .Values.tls.enabled }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ include "demo-apps.tlsSecret" . }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -81,6 +103,11 @@ spec:
     - name: http
       port: {{ .Values.gateway.service.port }}
       targetPort: http
+    {{- if .Values.tls.enabled }}
+    - name: https
+      port: 443
+      targetPort: https
+    {{- end }}
 {{- if .Values.gateway.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1

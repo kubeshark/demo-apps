@@ -1,0 +1,74 @@
+{{- if .Values.tls.enabled }}
+{{- $pg := include "demo-apps.need" (merge (dict "component" "postgresql") .) }}
+{{- $inv := include "demo-apps.need" (merge (dict "component" "inventory") .) }}
+{{- $pgSecret := include "demo-apps.secretName" (dict "root" . "name" "postgresql" "server" .Values.servers.postgresql) }}
+{{- /* lang, the flow it calls through the gateway, and the server it needs */}}
+{{- $clients := list
+  (dict "lang" "java" "flow" "catalog" "needs" $pg)
+  (dict "lang" "python" "flow" "orders" "needs" $pg)
+  (dict "lang" "node" "flow" "graphql" "needs" $inv) }}
+{{- range $c := $clients }}
+{{- $cfg := index $.Values.clients $c.lang }}
+{{- if and $cfg.enabled $c.needs }}
+{{- $ctx := dict "root" $ "name" (printf "client-%s" $c.lang) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-client-{{ $c.lang }}
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: client
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" $ | nindent 12 }}
+          env:
+            - name: GATEWAY_URL
+              value: https://{{ $.Release.Name }}-gateway
+            - name: FLOW
+              value: {{ $c.flow }}
+            - name: INTERVAL
+              value: {{ $.Values.clients.interval | quote }}
+            - name: CA_FILE
+              value: /etc/demo-apps/tls/ca.crt
+            {{- if eq $c.lang "node" }}
+            - name: INVENTORY_TLS_ADDR
+              value: {{ $.Release.Name }}-inventory:9443
+            {{- else }}
+            - name: POSTGRES_ADDR
+              value: {{ $.Release.Name }}-postgresql:5432
+            - name: POSTGRES_DB
+              value: {{ $.Values.servers.postgresql.database }}
+            - name: POSTGRES_USER
+              value: {{ $.Values.servers.postgresql.user }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ $pgSecret }}, key: password}
+            {{- end }}
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/demo-apps/tls
+              readOnly: true
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ include "demo-apps.tlsSecret" $ }}
+            items:
+              - {key: ca.crt, path: ca.crt}
+{{- end }}
+{{- end }}
+{{- end }}

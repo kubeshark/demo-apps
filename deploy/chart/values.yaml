@@ -69,8 +69,8 @@ runner:
 
 gateway:
   resources:
-    requests: {cpu: 50m, memory: 32Mi}
-    limits: {cpu: 250m, memory: 128Mi}
+    requests: {cpu: 50m, memory: 16Mi}
+    limits: {cpu: 250m, memory: 64Mi}
   service:
     type: ClusterIP
     port: 80
@@ -84,39 +84,71 @@ gateway:
   # service, so ingress-ingested traffic appears alongside the direct path.
   externalURL: ""
 
+# TLS for the gateway (HTTPS on 8443), the inventory gRPC API (9443) and postgresql. The chart
+# generates a CA and a server certificate once and keeps them across upgrades. Set
+# existingSecret to a Secret with ca.crt, tls.crt and tls.key (for example one issued by
+# cert-manager) to use your own.
+tls:
+  enabled: true
+  existingSecret: ""
+
+# Periodic clients in other languages, so TLS from the JVM, OpenSSL (Python) and Node
+# runtimes appears next to Go's. Each calls a flow through the gateway over HTTPS and talks
+# to one server over TLS. Requires tls.enabled.
+clients:
+  interval: 15s
+  java:
+    # JDK HttpClient to the gateway, pgjdbc to postgresql with sslmode=verify-full.
+    enabled: true
+    resources:
+      requests: {cpu: 50m, memory: 96Mi}
+      limits: {cpu: 500m, memory: 192Mi}
+  python:
+    # requests to the gateway, psycopg 3 to postgresql with sslmode=verify-full.
+    enabled: true
+    resources:
+      requests: {cpu: 20m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 96Mi}
+  node:
+    # fetch to the gateway, @grpc/grpc-js to the inventory TLS listener.
+    enabled: true
+    resources:
+      requests: {cpu: 20m, memory: 48Mi}
+      limits: {cpu: 200m, memory: 128Mi}
+
 services:
   catalog:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
   inventory:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
   orders:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
   notifier:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
   graphql:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
   live:
     resources:
       requests: {cpu: 20m, memory: 16Mi}
       limits: {cpu: 100m, memory: 64Mi}
   identity:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
   telco:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
   # The Diameter server and SCTP echo the telco flow talks to, built here.
   telcoServer:
     resources:
@@ -128,8 +160,8 @@ services:
       limits: {cpu: 100m, memory: 64Mi}
   ledger:
     resources:
-      requests: {cpu: 50m, memory: 32Mi}
-      limits: {cpu: 250m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
 
 # Every server requires authentication. Credentials are demo defaults rendered into
 # Secrets; set existingSecret to supply your own with the same keys.
@@ -148,18 +180,20 @@ servers:
     password: demo-mysql-password
     rootPassword: demo-mysql-root-password
     existingSecret: ""
+    # performance_schema off and a 64M buffer pool keep an idle server near 250 MiB.
     resources:
-      requests: {cpu: 100m, memory: 384Mi}
-      limits: {cpu: 500m, memory: 768Mi}
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 512Mi}
   mongodb:
     # 8.x refuses to start on Linux 6.19 through 7.0.13 (vendored tcmalloc); 7.0 runs everywhere.
     image: {name: mongo, tag: 7.0.45, digest: ""}
     rootUser: root
     rootPassword: demo-mongodb-password
     existingSecret: ""
+    # The WiredTiger cache is capped at 0.25 GB in the template.
     resources:
-      requests: {cpu: 100m, memory: 256Mi}
-      limits: {cpu: 500m, memory: 512Mi}
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 384Mi}
   postgresql:
     image: {name: postgres, tag: "17.11", digest: ""}
     database: demo
@@ -177,7 +211,7 @@ servers:
     password: demo-kafka-password
     existingSecret: ""
     resources:
-      requests: {cpu: 100m, memory: 192Mi}
+      requests: {cpu: 100m, memory: 256Mi}
       limits: {cpu: 500m, memory: 384Mi}
   rabbitmq:
     image: {name: rabbitmq, tag: 4.3.7-alpine, digest: ""}
@@ -185,7 +219,7 @@ servers:
     password: demo-rabbitmq-password
     existingSecret: ""
     resources:
-      requests: {cpu: 50m, memory: 128Mi}
+      requests: {cpu: 50m, memory: 96Mi}
       limits: {cpu: 500m, memory: 256Mi}
   openldap:
     image: {name: openldap, tag: 1.5.0, digest: ""}

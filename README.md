@@ -27,6 +27,23 @@ in `cilium-config` and restart the agents; without it the TCP Diameter leg still
 netprobe pod needs the `NET_RAW` capability for ICMP. The ledger flow (MSSQL, 2 GiB) is off by
 default.
 
+## TLS
+
+The gateway, the inventory gRPC API and postgresql also serve TLS from a CA the chart generates
+(`tls.existingSecret` to bring your own). Three clients in other languages use it on
+`clients.interval`: Java (JDK HttpClient, pgjdbc), Python (requests, psycopg on libpq) and Node
+(`node:https`, @grpc/grpc-js). What Kubeshark decrypts depends on the TLS library each side uses;
+observed with the tracer enabled:
+
+| Client | HTTPS to the gateway | TLS to its server |
+|---|---|---|
+| Python | decrypted in the client (system OpenSSL) | postgresql: decrypted in the client |
+| Java | not decrypted (JSSE has no hook) | postgresql: decrypted in the postgres server (OpenSSL) |
+| Node | not decrypted (OpenSSL linked into the node binary) | inventory gRPC: not decrypted |
+
+The Go binaries are built unstripped, because the tracer cannot hook stripped binaries of Go
+versions missing from its offset table.
+
 ## Develop
 
 ```bash
