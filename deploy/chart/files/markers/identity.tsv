@@ -1,0 +1,8 @@
+keep	KSKEEP-IDENTITY-USER-ALICE	user id: http login body, ldap bind dn and search filter, radius User-Name
+keep	KSKEEP-IDENTITY-USER-BOB	user id, same carriers
+keep	KSKEEP-IDENTITY-PASSWORD-ALICE	password: http login body and ldap simple bind in clear; radius User-Password carries it encrypted
+keep	KSKEEP-IDENTITY-PASSWORD-BOB	password, same carriers
+keep	KSKEEP-IDENTITY-BADPASSWORD-TYPO	wrong password on the error path: http login body and ldap bind rejected with invalidCredentials, radius Access-Reject
+keep	KSKEEP-IDENTITY-DESCRIPTION-LOGIN	description attribute the ldap modify replaces after every successful login, followed by the login time
+keep	KSKEEP-IDENTITY-NAS-GATEWAY	NAS-Identifier attribute on every radius request
+keep	KSKEEP-IDENTITY-SESSION-	Acct-Session-Id prefix on the radius access and accounting requests; a run counter follows it

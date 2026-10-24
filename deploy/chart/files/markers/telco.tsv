@@ -1,0 +1,6 @@
+keep	KSKEEP-TELCO-SUBSCRIBER-ALICE	subscriber: http request body, User-Name AVP in the Credit-Control-Request and its answer
+keep	KSKEEP-TELCO-SUBSCRIBER-BOB	subscriber, same carriers
+keep	KSKEEP-TELCO-SESSION-GY	last segment of the Session-Id AVP on every Credit-Control-Request and answer; a run counter precedes it
+keep	KSKEEP-TELCO-CONTEXT-GY	Service-Context-Id AVP the server rates: http request body, Credit-Control-Request
+keep	KSKEEP-TELCO-BADCONTEXT-UNKNOWN	Service-Context-Id the server does not know, answered DIAMETER_UNABLE_TO_COMPLY 5012 on the error path
+keep	KSKEEP-TELCO-ECHO-PING	payload of the plain sctp echo: http request body, sctp DATA chunk in both directions

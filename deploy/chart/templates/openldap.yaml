@@ -1,0 +1,107 @@
+{{- if include "demo-apps.need" (merge (dict "component" "openldap") .) }}
+{{- $ctx := dict "root" . "name" "openldap" }}
+{{- $s := .Values.servers.openldap }}
+{{- $secret := include "demo-apps.secretName" (dict "root" . "name" "openldap" "server" $s) }}
+{{- if not $s.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-openldap
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+stringData:
+  admin-password: {{ $s.adminPassword | quote }}
+---
+{{- end }}
+{{/*
+The image's default ACL lets a user read only its own entry. The flow has users
+search the people subtree and update their own description, so the ACL is
+replaced at bootstrap; the image substitutes the backend and base DN.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-openldap
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+data:
+  acl.ldif: |
+    dn: olcDatabase={1}{{ "{{ LDAP_BACKEND }}" }},cn=config
+    changetype: modify
+    replace: olcAccess
+    olcAccess: to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * break
+    olcAccess: to attrs=userPassword,shadowLastChange by self write by dn="cn=admin,{{ "{{ LDAP_BASE_DN }}" }}" write by anonymous auth by * none
+    olcAccess: to * by self write by dn="cn=admin,{{ "{{ LDAP_BASE_DN }}" }}" write by users read
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-openldap
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: openldap
+          image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: LDAP_ORGANISATION
+              value: demo-apps
+            - name: LDAP_DOMAIN
+              value: {{ $s.domain }}
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ $secret }}, key: admin-password}
+            - name: LDAP_TLS
+              value: "false"
+            - name: LDAP_SEED_INTERNAL_LDIF_PATH
+              value: /bootstrap
+          ports:
+            - name: ldap
+              containerPort: 389
+          readinessProbe:
+            tcpSocket: {port: ldap}
+            initialDelaySeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/ldap
+            - name: config
+              mountPath: /etc/ldap/slapd.d
+            - name: bootstrap
+              mountPath: /bootstrap
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
+        - name: bootstrap
+          configMap:
+            name: {{ .Release.Name }}-openldap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-openldap
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: ldap
+      port: 389
+      targetPort: ldap
+{{- end }}

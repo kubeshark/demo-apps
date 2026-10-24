@@ -42,6 +42,10 @@ func (r *recorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// Unwrap lets http.ResponseController and WebSocket upgrades reach the
+// underlying writer's Hijacker.
+func (r *recorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 // Serve runs the server until SIGTERM/SIGINT, then drains for up to 10s.
 func Serve(addr string, h http.Handler) error {
 	srv := &http.Server{Addr: addr, Handler: Logging(h), ReadHeaderTimeout: 10 * time.Second}

@@ -20,6 +20,43 @@ flows:
   inventory:
     enabled: true
     interval: 10s
+  # gateway -> orders (http) -> postgresql -> kafka -> notifier -> rabbitmq (amqp)
+  orders:
+    enabled: true
+    interval: 10s
+    # Pins the Kafka client's API versions to what the dissector decodes. Off lets the
+    # client negotiate the newest versions the broker offers, which the dissector may
+    # not decode yet; that scenario exists to make the gap visible.
+    kafkaPinned: true
+  # gateway -> graphql (http POST application/json) -> postgresql
+  graphql:
+    enabled: true
+    interval: 10s
+  # gateway -> live (websocket session with server pushes)
+  websocket:
+    enabled: true
+    interval: 10s
+  # gateway -> identity (http) -> ldap bind + search, radius access + accounting
+  identity:
+    enabled: true
+    interval: 10s
+  # gateway -> telco (http) -> diameter over tcp and over sctp, plain sctp echo
+  telco:
+    enabled: true
+    interval: 10s
+  # gateway -> netprobe (http) -> dns lookups, icmp ping, https egress
+  netprobe:
+    enabled: true
+    interval: 10s
+    # External HTTPS endpoints the egress step calls; empty disables egress and external DNS.
+    egressURLs:
+      - https://www.example.com
+      - https://www.cloudflare.com/cdn-cgi/trace
+  # gateway -> ledger (http) -> mssql. Off by default: no TDS dissector exists yet, so this
+  # traffic shows as tcp, and the server needs 2 GiB.
+  ledger:
+    enabled: false
+    interval: 10s
 
 # Drives every enabled flow on its interval through the gateway, the same way a UI click does.
 runner:
@@ -56,6 +93,43 @@ services:
     resources:
       requests: {cpu: 50m, memory: 32Mi}
       limits: {cpu: 250m, memory: 128Mi}
+  orders:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+  notifier:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+  graphql:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+  live:
+    resources:
+      requests: {cpu: 20m, memory: 16Mi}
+      limits: {cpu: 100m, memory: 64Mi}
+  identity:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+  telco:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+  # The Diameter server and SCTP echo the telco flow talks to, built here.
+  telcoServer:
+    resources:
+      requests: {cpu: 20m, memory: 16Mi}
+      limits: {cpu: 100m, memory: 64Mi}
+  netprobe:
+    resources:
+      requests: {cpu: 20m, memory: 16Mi}
+      limits: {cpu: 100m, memory: 64Mi}
+  ledger:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
 
 # Every server requires authentication. Credentials are demo defaults rendered into
 # Secrets; set existingSecret to supply your own with the same keys.
@@ -86,3 +160,58 @@ servers:
     resources:
       requests: {cpu: 100m, memory: 256Mi}
       limits: {cpu: 500m, memory: 512Mi}
+  postgresql:
+    image: {name: postgres, tag: "17.11", digest: ""}
+    database: demo
+    user: demo
+    password: demo-postgresql-password
+    existingSecret: ""
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+  kafka:
+    # KRaft single node, native (GraalVM) build. SASL/PLAIN on the SASL_PLAINTEXT listener;
+    # the native image supports SASL from 4.4.0.
+    image: {name: kafka-native, tag: 4.4.0, digest: ""}
+    user: demo
+    password: demo-kafka-password
+    existingSecret: ""
+    resources:
+      requests: {cpu: 100m, memory: 192Mi}
+      limits: {cpu: 500m, memory: 384Mi}
+  rabbitmq:
+    image: {name: rabbitmq, tag: 4.3.7-alpine, digest: ""}
+    user: demo
+    password: demo-rabbitmq-password
+    existingSecret: ""
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+  openldap:
+    image: {name: openldap, tag: 1.5.0, digest: ""}
+    domain: demo.local
+    adminPassword: demo-ldap-admin-password
+    existingSecret: ""
+    resources:
+      requests: {cpu: 20m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 128Mi}
+  freeradius:
+    image: {name: freeradius-server, tag: 3.2.10-alpine, digest: ""}
+    secret: demo-radius-shared-secret
+    existingSecret: ""
+    resources:
+      requests: {cpu: 20m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 128Mi}
+  coredns:
+    image: {name: coredns, tag: 1.14.7, digest: ""}
+    zone: demo.local
+    resources:
+      requests: {cpu: 20m, memory: 16Mi}
+      limits: {cpu: 200m, memory: 64Mi}
+  mssql:
+    image: {name: mssql-server, tag: 2022-CU27-ubuntu-22.04, digest: ""}
+    saPassword: Demo-mssql-password-1
+    existingSecret: ""
+    resources:
+      requests: {cpu: 250m, memory: 1Gi}
+      limits: {cpu: 1000m, memory: 2Gi}

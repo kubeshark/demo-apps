@@ -22,6 +22,11 @@ cadence (`runner.slowEvery`, `runner.errorEvery`).
 Kubeshark needs `deploy/kubeshark-values.yaml` to show every flow: it enables the `sctp` dissector
 and keeps dissection on when nobody is watching the UI.
 
+Cluster requirements: the telco flow needs SCTP through the CNI (on Cilium set `enable-sctp: "true"`
+in `cilium-config` and restart the agents; without it the TCP Diameter leg still works), and the
+netprobe pod needs the `NET_RAW` capability for ICMP. The ledger flow (MSSQL, 2 GiB) is off by
+default.
+
 ## Develop
 
 ```bash
@@ -39,7 +44,7 @@ helm upgrade --install demo-apps deploy/chart -n demo-apps --create-namespace \
 hack/smoke.sh demo-apps demo-apps   # every flow in every variant through the gateway API
 ```
 
-Until the mirror repositories exist, point the servers at their upstream registry:
-`--set global.mirrorRegistry=docker.io --set global.mirrorPrefix=library`.
+Until the mirror repositories exist, pull the servers from their upstream registries with
+`-f deploy/chart/ci/upstream-values.yaml`.
 
 Layout, invariants and how to add a flow: `AGENTS.md`.

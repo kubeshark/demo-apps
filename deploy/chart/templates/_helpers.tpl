@@ -5,6 +5,13 @@ listed here; a component is rendered once even when several flows need it.
 {{- define "demo-apps.needs" -}}
 catalog: [catalog, redis, mysql]
 inventory: [inventory, mongodb]
+orders: [orders, notifier, postgresql, kafka, rabbitmq]
+graphql: [graphql, postgresql]
+websocket: [live]
+identity: [identity, openldap, freeradius]
+telco: [telco, telco-server]
+netprobe: [netprobe, coredns]
+ledger: [ledger, mssql]
 {{- end }}
 
 {{/* true when any enabled flow needs the component named in .component */}}
@@ -37,11 +44,16 @@ inventory: [inventory, mongodb]
 {{- printf "%s/%s:%s" $repo .name (include "demo-apps.tag" .root) -}}
 {{- end }}
 
-{{/* mirrored third-party image: .root and .image (name, tag, digest) */}}
+{{/*
+mirrored third-party image: .root and .image (name, tag, digest, optional repository).
+repository, when set, replaces registry/prefix/name verbatim; the chart's ci values use it
+to pull servers from their upstream registries.
+*/}}
 {{- define "demo-apps.mirrorImage" -}}
 {{- $repo := .root.Values.global.mirrorRegistry | default .root.Values.global.registry -}}
 {{- with .root.Values.global.mirrorPrefix }}{{ $repo = printf "%s/%s" $repo . }}{{ end -}}
 {{- $ref := printf "%s/%s:%s" $repo .image.name .image.tag -}}
+{{- with .image.repository }}{{ $ref = printf "%s:%s" . $.image.tag }}{{ end -}}
 {{- if .image.digest }}{{ $ref }}@{{ .image.digest }}{{ else }}{{ $ref }}{{ end -}}
 {{- end }}
 
