@@ -1,7 +1,14 @@
-variable "github_repository" {
-  description = "GitHub repository allowed to assume the publishing role"
-  type        = string
-  default     = "kubeshark/demo-apps"
+# Repositories created with GitHub's immutable subject claims present
+# repo:<owner>@<owner-id>/<repo>@<repo-id>:... in the OIDC sub; older ones
+# present repo:<owner>/<repo>:... . Both forms are trusted, the immutable one
+# pinned to the IDs (gh api repos/<owner>/<repo>/actions/oidc/customization/sub).
+variable "github_subjects" {
+  description = "OIDC sub patterns allowed to assume the publishing role"
+  type        = list(string)
+  default = [
+    "repo:kubeshark/demo-apps:*",
+    "repo:kubeshark@99263827/demo-apps@1430858405:*",
+  ]
 }
 
 data "aws_iam_openid_connect_provider" "github" {
@@ -19,7 +26,7 @@ resource "aws_iam_role" "github_actions" {
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:*" }
+        StringLike   = { "token.actions.githubusercontent.com:sub" = var.github_subjects }
       }
     }]
   })
