@@ -10,7 +10,7 @@ function markers(path) {
   const out = {};
   for (const line of readFileSync(path, "utf8").split("\n")) {
     const cols = line.split("\t");
-    if (cols.length !== 3) continue;
+    if (cols.length < 3) continue;
     const parts = cols[1].split("-");
     if (parts.length < 4) continue;
     out[`${parts[2]}-${parts.slice(3).join("-")}`] = cols[1];

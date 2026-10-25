@@ -89,7 +89,7 @@ public class Client {
         Map<String, String> out = new HashMap<>();
         for (String line : Files.readAllLines(file)) {
             String[] cols = line.split("\t");
-            if (cols.length == 3) {
+            if (cols.length >= 3) {
                 String[] parts = cols[1].split("-", 4);
                 if (parts.length == 4) {
                     out.put(parts[2] + "-" + parts[3], cols[1]);
