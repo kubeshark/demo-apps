@@ -31,10 +31,28 @@ spec:
       labels:
         {{- include "demo-apps.labels" $ctx | nindent 8 }}
     spec:
+      {{- if .Values.tls.enabled }}
+      initContainers:
+        # postgres refuses a key that is not owned by its user with mode 0600.
+        - name: tls-permissions
+          image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [sh, -c, "install -o postgres -g postgres -m 0600 /tls-src/tls.key /tls/tls.key && install -o postgres -g postgres -m 0644 /tls-src/tls.crt /tls/tls.crt"]
+          volumeMounts:
+            - {name: tls-src, mountPath: /tls-src, readOnly: true}
+            - {name: tls, mountPath: /tls}
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+      {{- end }}
       containers:
         - name: postgresql
           image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.tls.enabled }}
+          # Plaintext connections stay allowed: the Go flows use sslmode=disable so the
+          # dissector sees them without the tracer.
+          args: ["-c", "ssl=on", "-c", "ssl_cert_file=/tls/tls.crt", "-c", "ssl_key_file=/tls/tls.key"]
+          {{- end }}
           env:
             - name: POSTGRES_DB
               value: {{ $s.database }}
@@ -55,11 +73,21 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            {{- if .Values.tls.enabled }}
+            - {name: tls, mountPath: /tls, readOnly: true}
+            {{- end }}
           resources:
             {{- toYaml $s.resources | nindent 12 }}
       volumes:
         - name: data
           emptyDir: {}
+        {{- if .Values.tls.enabled }}
+        - name: tls-src
+          secret:
+            secretName: {{ include "demo-apps.tlsSecret" . }}
+        - name: tls
+          emptyDir: {}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

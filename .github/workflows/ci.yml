@@ -65,6 +65,10 @@ jobs:
           KO_DOCKER_REPO: kind.local
           KIND_CLUSTER_NAME: smoke
         run: make images TAG=smoke
+      - name: Build client images into kind
+        run: |
+          make client-images REGISTRY=kind.local TAG=smoke
+          for c in java python node; do kind load docker-image kind.local/client-$c:smoke --name smoke; done
       - name: Install chart
         run: |
           helm install demo-apps deploy/chart -n demo-apps --create-namespace --wait --timeout 5m \
@@ -72,7 +76,7 @@ jobs:
             -f deploy/chart/ci/upstream-values.yaml \
             --set flows.catalog.interval=2s --set flows.inventory.interval=2s --set flows.orders.interval=2s \
             --set flows.graphql.interval=2s --set flows.websocket.interval=2s --set flows.identity.interval=2s \
-            --set flows.telco.interval=2s --set flows.netprobe.interval=2s
+            --set flows.telco.interval=2s --set flows.netprobe.interval=2s --set clients.interval=3s
       - name: Run every flow in every variant
         run: hack/smoke.sh demo-apps demo-apps
       - name: Describe on failure

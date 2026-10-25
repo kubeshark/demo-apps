@@ -44,6 +44,23 @@ each one whose variable is set. The chart sets exactly the variables of the enab
 The runner's variant schedule: every `slowEvery`-th run is slow, every `errorEvery`-th is the
 error path, the rest are ok. With `gateway.externalURL` set, every second run goes there.
 
+## TLS and the non-Go clients
+
+With `tls.enabled` (default) the chart generates one CA and one server certificate (Secret
+`<release>-tls`, kept across upgrades via `lookup`; `tls.existingSecret` replaces it) covering the
+gateway (HTTPS 8443, Service port 443), inventory (gRPC over TLS 9443) and postgresql (`ssl=on`,
+plaintext still accepted so the Go flows stay visible without the tracer).
+
+| Client | Image | Calls | Built from |
+|---|---|---|---|
+| client-java | `<registry>/<prefix>/client-java` | catalog flow via HTTPS (JDK HttpClient), postgresql `verify-full` (pgjdbc) | `clients/java/Dockerfile` |
+| client-python | `<registry>/<prefix>/client-python` | orders flow via HTTPS (requests), postgresql `verify-full` (psycopg 3 on the system libpq) | `clients/python/Dockerfile` |
+| client-node | `<registry>/<prefix>/client-node` | graphql flow via HTTPS (node:https), inventory GetStock over TLS (@grpc/grpc-js) | `clients/node/Dockerfile` |
+
+Each opens new connections every `clients.interval`, so handshakes recur. They read
+`clients/markers.tsv`, copied into each image; the Dockerfiles take the repository root as build
+context (`make client-images`). The Go services are built by ko, the clients by docker.
+
 ## Registry
 
 Every image resolves through one name: `public.ecr.aws/l3y1d4r0/kubeshark/demo-apps/<service>`

@@ -1,0 +1,5 @@
+keep	KSKEEP-CLIENTS-AGENT-JAVA	X-Demo-Client header on the java client's https call to the gateway, and the application_name of its postgresql session
+keep	KSKEEP-CLIENTS-AGENT-PYTHON	X-Demo-Client header on the python client's https call to the gateway, and the application_name of its postgresql session
+keep	KSKEEP-CLIENTS-AGENT-NODE	X-Demo-Client header on the node client's https call to the gateway, and x-demo-client grpc metadata on its tls call to inventory
+keep	KSKEEP-CLIENTS-QUERY-JAVA	literal the java client selects from postgresql over tls
+keep	KSKEEP-CLIENTS-QUERY-PYTHON	literal the python client selects from postgresql over tls

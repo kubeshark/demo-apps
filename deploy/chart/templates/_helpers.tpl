@@ -82,3 +82,8 @@ seccompProfile:
 {{- define "demo-apps.secretName" -}}
 {{- .server.existingSecret | default (printf "%s-%s" .root.Release.Name .name) -}}
 {{- end }}
+
+{{/* Secret holding ca.crt, tls.crt and tls.key for every TLS-serving component. */}}
+{{- define "demo-apps.tlsSecret" -}}
+{{- .Values.tls.existingSecret | default (printf "%s-tls" .Release.Name) -}}
+{{- end }}

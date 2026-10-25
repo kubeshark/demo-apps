@@ -57,7 +57,11 @@ func main() {
 	mux.Handle("GET /ui/", http.FileServerFS(ui))
 	mux.HandleFunc("GET /api/flows", g.list)
 	mux.HandleFunc("POST /api/flows/{name}/run", g.run)
-	if err := httpx.Serve(httpx.Env("LISTEN_ADDR", ":8080"), mux); err != nil {
+	tl := httpx.TLSListener{CertFile: os.Getenv("TLS_CERT_FILE"), KeyFile: os.Getenv("TLS_KEY_FILE")}
+	if tl.CertFile != "" {
+		tl.Addr = httpx.Env("TLS_LISTEN_ADDR", ":8443")
+	}
+	if err := httpx.ServeTLS(httpx.Env("LISTEN_ADDR", ":8080"), tl, mux); err != nil {
 		slog.Error("serve", "err", err)
 		os.Exit(1)
 	}

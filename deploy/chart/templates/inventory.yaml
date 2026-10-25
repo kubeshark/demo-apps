@@ -30,13 +30,35 @@ spec:
                   key: password
             - name: MONGODB_URI
               value: mongodb://{{ .Values.servers.mongodb.rootUser }}:$(MONGODB_PASSWORD)@{{ .Release.Name }}-mongodb:27017/?authSource=admin
+            {{- if .Values.tls.enabled }}
+            - name: TLS_CERT_FILE
+              value: /etc/demo-apps/tls/tls.crt
+            - name: TLS_KEY_FILE
+              value: /etc/demo-apps/tls/tls.key
+            {{- end }}
           ports:
             - name: grpc
               containerPort: 9090
+            {{- if .Values.tls.enabled }}
+            - name: grpc-tls
+              containerPort: 9443
+            {{- end }}
           readinessProbe:
             grpc: {port: 9090}
+          {{- if .Values.tls.enabled }}
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/demo-apps/tls
+              readOnly: true
+          {{- end }}
           resources:
             {{- toYaml .Values.services.inventory.resources | nindent 12 }}
+      {{- if .Values.tls.enabled }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ include "demo-apps.tlsSecret" . }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -51,4 +73,9 @@ spec:
     - name: grpc
       port: 9090
       targetPort: grpc
+    {{- if .Values.tls.enabled }}
+    - name: grpc-tls
+      port: 9443
+      targetPort: grpc-tls
+    {{- end }}
 {{- end }}

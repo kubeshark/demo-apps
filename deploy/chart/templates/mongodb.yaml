@@ -34,6 +34,7 @@ spec:
         - name: mongodb
           image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["--wiredTigerCacheSizeGB", "0.25"]
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               value: {{ $s.rootUser }}
