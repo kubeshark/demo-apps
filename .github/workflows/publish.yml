@@ -1,0 +1,69 @@
+name: Publish
+
+# Images are pushed on every branch push as <branch>-<sha7> and on v* tags as the tag;
+# the chart is published on v* tags only. Skipped until the repository variable
+# AWS_ROLE_ARN (terraform output role_arn) is set.
+on:
+  push:
+    branches: ['*']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGISTRY: ${{ vars.ECR_PUBLIC_REGISTRY || 'public.ecr.aws/l3y1d4r0' }}
+
+jobs:
+  images:
+    if: vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: ko-build/setup-ko@v0.9
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+      - name: Tag
+        id: tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$GITHUB_REF_NAME-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Go images
+        env:
+          KO_DOCKER_REPO: ${{ env.REGISTRY }}/kubeshark/demo-apps
+        run: make images TAG=${{ steps.tag.outputs.tag }}
+      - name: Client images
+        run: |
+          make client-images REGISTRY=$REGISTRY/kubeshark/demo-apps TAG=${{ steps.tag.outputs.tag }}
+          for c in java python node; do docker push $REGISTRY/kubeshark/demo-apps/client-$c:${{ steps.tag.outputs.tag }}; done
+
+  chart:
+    if: vars.AWS_ROLE_ARN != '' && github.ref_type == 'tag'
+    needs: images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v4
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Package and push
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          aws ecr-public get-login-password | helm registry login --username AWS --password-stdin public.ecr.aws
+          helm package deploy/chart --version "$version" --app-version "$GITHUB_REF_NAME"
+          helm push "demo-apps-$version.tgz" "oci://$REGISTRY/kubeshark/charts"

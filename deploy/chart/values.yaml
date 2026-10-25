@@ -167,14 +167,14 @@ services:
 # Secrets; set existingSecret to supply your own with the same keys.
 servers:
   redis:
-    image: {name: redis, tag: 7.4.11, digest: ""}
+    image: {name: redis, tag: 7.4.11, digest: "sha256:44960b3100c48159a66d28c18b0588c193492e25f7551d60e51dd464fc3eca5b"}
     password: demo-redis-password
     existingSecret: ""
     resources:
       requests: {cpu: 20m, memory: 32Mi}
       limits: {cpu: 200m, memory: 128Mi}
   mysql:
-    image: {name: mysql, tag: 8.4.13, digest: ""}
+    image: {name: mysql, tag: 8.4.13, digest: "sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69"}
     database: catalog
     user: catalog
     password: demo-mysql-password
@@ -186,7 +186,7 @@ servers:
       limits: {cpu: 500m, memory: 512Mi}
   mongodb:
     # 8.x refuses to start on Linux 6.19 through 7.0.13 (vendored tcmalloc); 7.0 runs everywhere.
-    image: {name: mongo, tag: 7.0.45, digest: ""}
+    image: {name: mongo, tag: 7.0.45, digest: "sha256:c53852c00c23ca9f23fc39690350ffa9a80e3642fe8f96879726d8da0abe80a7"}
     rootUser: root
     rootPassword: demo-mongodb-password
     existingSecret: ""
@@ -195,7 +195,7 @@ servers:
       requests: {cpu: 100m, memory: 128Mi}
       limits: {cpu: 500m, memory: 384Mi}
   postgresql:
-    image: {name: postgres, tag: "17.11", digest: ""}
+    image: {name: postgres, tag: "17.11", digest: "sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe"}
     database: demo
     user: demo
     password: demo-postgresql-password
@@ -206,7 +206,7 @@ servers:
   kafka:
     # KRaft single node, native (GraalVM) build. SASL/PLAIN on the SASL_PLAINTEXT listener;
     # the native image supports SASL from 4.4.0.
-    image: {name: kafka-native, tag: 4.4.0, digest: ""}
+    image: {name: kafka-native, tag: 4.4.0, digest: "sha256:11fde816adf384402de9f3e57aeaf2c3722ba0671610247817688d07441714b4"}
     user: demo
     password: demo-kafka-password
     existingSecret: ""
@@ -214,7 +214,7 @@ servers:
       requests: {cpu: 100m, memory: 256Mi}
       limits: {cpu: 500m, memory: 384Mi}
   rabbitmq:
-    image: {name: rabbitmq, tag: 4.3.7-alpine, digest: ""}
+    image: {name: rabbitmq, tag: 4.3.7-alpine, digest: "sha256:f843f29765b9bf9303ac8af0f33de3bc650ee00bf5a9c0056dfd479f75bce588"}
     user: demo
     password: demo-rabbitmq-password
     existingSecret: ""
@@ -222,7 +222,7 @@ servers:
       requests: {cpu: 50m, memory: 96Mi}
       limits: {cpu: 500m, memory: 256Mi}
   openldap:
-    image: {name: openldap, tag: 1.5.0, digest: ""}
+    image: {name: openldap, tag: 1.5.0, digest: "sha256:18742e9c449c9c1afe129d3f2f3ee15fb34cc43e5f940a20f3399728f41d7c28"}
     domain: demo.local
     adminPassword: demo-ldap-admin-password
     existingSecret: ""
@@ -230,20 +230,20 @@ servers:
       requests: {cpu: 20m, memory: 32Mi}
       limits: {cpu: 200m, memory: 128Mi}
   freeradius:
-    image: {name: freeradius-server, tag: 3.2.10-alpine, digest: ""}
+    image: {name: freeradius-server, tag: 3.2.10-alpine, digest: "sha256:91acbee4a1f532e3a266ae3d7f153a5cf21f5faa9bc14116d5d1fe2c2a746c27"}
     secret: demo-radius-shared-secret
     existingSecret: ""
     resources:
       requests: {cpu: 20m, memory: 32Mi}
       limits: {cpu: 200m, memory: 128Mi}
   coredns:
-    image: {name: coredns, tag: 1.14.7, digest: ""}
+    image: {name: coredns, tag: 1.14.7, digest: "sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286"}
     zone: demo.local
     resources:
       requests: {cpu: 20m, memory: 16Mi}
       limits: {cpu: 200m, memory: 64Mi}
   mssql:
-    image: {name: mssql-server, tag: 2022-CU27-ubuntu-22.04, digest: ""}
+    image: {name: mssql-server, tag: 2022-CU27-ubuntu-22.04, digest: "sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090"}
     saPassword: Demo-mssql-password-1
     existingSecret: ""
     resources:
