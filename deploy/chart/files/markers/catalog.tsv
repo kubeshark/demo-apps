@@ -1,0 +1,8 @@
+keep	KSKEEP-CATALOG-SKU-WOOL	product sku: request path at the gateway and the catalog, redis key, mysql primary key
+keep	KSKEEP-CATALOG-SKU-COTTON	product sku, same carriers
+keep	KSKEEP-CATALOG-SKU-SILK	product sku, same carriers
+keep	KSKEEP-CATALOG-NAME-WOOL	product name: mysql row, redis value, json response body
+keep	KSKEEP-CATALOG-NAME-COTTON	product name, same carriers
+keep	KSKEEP-CATALOG-NAME-SILK	product name, same carriers
+keep	KSKEEP-CATALOG-USER-ALICE	X-Demo-User request header on every hop
+keep	KSKEEP-CATALOG-TABLE-MISSING	mysql table name queried on the error path, present in the mysql error and the http 500 body

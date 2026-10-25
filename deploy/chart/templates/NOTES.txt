@@ -1,0 +1,14 @@
+Flows enabled:
+{{- range $flow, $cfg := .Values.flows }}{{ if $cfg.enabled }}
+  {{ $flow }} every {{ $cfg.interval }}{{ end }}{{ end }}
+
+UI:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-gateway 8080:{{ .Values.gateway.service.port }}
+  open http://localhost:8080
+{{- if .Values.gateway.ingress.enabled }}
+  or http://{{ .Values.gateway.ingress.host }}
+{{- end }}
+
+Kubeshark values that make every flow visible (sctp is off by default, and headless
+clusters need dissection to stay on) are in deploy/kubeshark-values.yaml of the
+demo-apps repository.

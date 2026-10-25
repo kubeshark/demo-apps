@@ -1,0 +1,63 @@
+{{- if include "demo-apps.need" (merge (dict "component" "redis") .) }}
+{{- $ctx := dict "root" . "name" "redis" }}
+{{- $s := .Values.servers.redis }}
+{{- if not $s.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-redis
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+stringData:
+  password: {{ $s.password | quote }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-redis
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)", "--save", ""]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "redis" "server" $s) }}
+                  key: password
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            tcpSocket: {port: redis}
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-redis
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+{{- end }}
