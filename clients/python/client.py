@@ -16,7 +16,7 @@ def markers(path):
     with open(path) as f:
         for line in f:
             cols = line.rstrip("\n").split("\t")
-            if len(cols) == 3:
+            if len(cols) >= 3:
                 parts = cols[1].split("-", 3)
                 if len(parts) == 4:
                     out[f"{parts[2]}-{parts[3]}"] = cols[1]

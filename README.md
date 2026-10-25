@@ -63,6 +63,17 @@ helm upgrade --install demo-apps deploy/chart -n demo-apps --create-namespace \
 hack/smoke.sh demo-apps demo-apps   # every flow in every variant, and every TLS client
 ```
 
+To check what Kubeshark captured, port-forward the hub and the gateway and run the marker checker.
+It runs every enabled flow in every variant (6 rounds by default) while streaming from the hub, and
+fails if a declared marker never reaches a streamed entry; markers declared `wire` are reported,
+not failed:
+
+```bash
+kubectl -n default port-forward svc/kubeshark-hub 18899:80 &
+kubectl -n demo-apps port-forward svc/demo-apps-gateway 18080:80 &
+go run ./tools/ksxcheck -hub http://127.0.0.1:18899 -gateway http://127.0.0.1:18080
+```
+
 To pull the third-party servers from their upstream registries instead of the mirror, add
 `-f deploy/chart/ci/upstream-values.yaml`.
 

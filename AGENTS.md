@@ -84,9 +84,16 @@ Both publish workflows are skipped until the repository variable `AWS_ROLE_ARN` 
 ## Flows
 
 A flow is a directory under `internal/flows/<name>` with a `markers.tsv`
-(`kind<TAB>value<TAB>what`, kinds `keep` and `vanish`). The service embeds the file and puts every
-value on the wire; a checker reads the same file. Enabling `flows.<name>.enabled` in the chart
-renders the services and servers that flow needs.
+(`kind<TAB>value<TAB>what[<TAB>expect]`, kinds `keep` and `vanish`). The service embeds the file and
+puts every value on the wire; `tools/ksxcheck` reads the same files. Enabling `flows.<name>.enabled`
+in the chart renders the services and servers that flow needs.
+
+`expect` says where a checker can observe a marker: `stream` (the default) means it reaches an
+entry the hub streams and the checker fails without it; `wire` means it is sent but no dissector
+carries it into a streamed entry (encrypted on the wire, kept in a payload outside the base entry,
+or a protocol without a dissector), so the checker reports it and never fails on it. Mark a marker
+`wire` only for one of those reasons, stated in `what`; a marker that streams on some runs only is
+still `stream`, and the checker gives it several runs.
 
 | Flow | Path | Servers | Error path | Slow path |
 |---|---|---|---|---|

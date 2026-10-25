@@ -17,10 +17,23 @@ const (
 	Vanish Kind = "vanish"
 )
 
+// Expect says where a checker can observe a marker.
+type Expect string
+
+const (
+	// Stream: the marker reaches an entry the hub streams; a checker requires it.
+	Stream Expect = "stream"
+	// Wire: the marker is sent, but no dissector carries it into a streamed
+	// entry (encrypted field, payload kept out of the base entry, protocol
+	// without a dissector). A checker reports it and does not fail on it.
+	Wire Expect = "wire"
+)
+
 type Marker struct {
-	Kind  Kind
-	Value string
-	What  string
+	Kind   Kind
+	Value  string
+	What   string
+	Expect Expect
 }
 
 // Field is the segment after the flow name in KSKEEP-<FLOW>-<FIELD>-<REST>.
@@ -37,8 +50,9 @@ type Set struct {
 	Markers []Marker
 }
 
-// Parse reads kind<TAB>value<TAB>what lines. Blank lines and lines starting
-// with # are ignored. Every value must be unique within the set.
+// Parse reads kind<TAB>value<TAB>what[<TAB>expect] lines; expect is stream
+// (the default) or wire. Blank lines and lines starting with # are ignored.
+// Every value must be unique within the set.
 func Parse(flow, text string) (*Set, error) {
 	s := &Set{Flow: flow}
 	seen := map[string]bool{}
@@ -51,8 +65,8 @@ func Parse(flow, text string) (*Set, error) {
 			continue
 		}
 		cols := strings.Split(raw, "\t")
-		if len(cols) != 3 {
-			return nil, fmt.Errorf("markers %s line %d: want 3 tab-separated columns, got %d", flow, line, len(cols))
+		if len(cols) != 3 && len(cols) != 4 {
+			return nil, fmt.Errorf("markers %s line %d: want 3 or 4 tab-separated columns, got %d", flow, line, len(cols))
 		}
 		kind := Kind(cols[0])
 		if kind != Keep && kind != Vanish {
@@ -61,11 +75,18 @@ func Parse(flow, text string) (*Set, error) {
 		if cols[1] == "" || cols[2] == "" {
 			return nil, fmt.Errorf("markers %s line %d: empty value or description", flow, line)
 		}
+		expect := Stream
+		if len(cols) == 4 {
+			expect = Expect(cols[3])
+			if expect != Stream && expect != Wire {
+				return nil, fmt.Errorf("markers %s line %d: unknown expect %q", flow, line, cols[3])
+			}
+		}
 		if seen[cols[1]] {
 			return nil, fmt.Errorf("markers %s line %d: duplicate value %q", flow, line, cols[1])
 		}
 		seen[cols[1]] = true
-		s.Markers = append(s.Markers, Marker{Kind: kind, Value: cols[1], What: cols[2]})
+		s.Markers = append(s.Markers, Marker{Kind: kind, Value: cols[1], What: cols[2], Expect: expect})
 	}
 	if err := sc.Err(); err != nil {
 		return nil, err

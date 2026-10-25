@@ -13,10 +13,22 @@ func TestParseRejectsMalformedLines(t *testing.T) {
 		"empty what":      "keep\tKSKEEP-X-A-1\t",
 		"no entries":      "# only a comment\n",
 		"space separated": "keep KSKEEP-X-A-1 what",
+		"unknown expect":  "keep\tKSKEEP-X-A-1\twhat\tpayload",
+		"five columns":    "keep\tKSKEEP-X-A-1\twhat\twire\textra",
 	}
 	for name, text := range cases {
 		if _, err := Parse("x", text); err == nil {
 			t.Errorf("%s: expected error", name)
+		}
+	}
+}
+
+func TestExpectDefaultsToStream(t *testing.T) {
+	s := MustParse("x", "keep\tKSKEEP-X-A-1\tseen\nkeep\tKSKEEP-X-B-1\tsent only\twire\nkeep\tKSKEEP-X-C-1\texplicit\tstream")
+	want := []Expect{Stream, Wire, Stream}
+	for i, m := range s.Markers {
+		if m.Expect != want[i] {
+			t.Errorf("%s: expect %q, want %q", m.Value, m.Expect, want[i])
 		}
 	}
 }
