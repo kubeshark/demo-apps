@@ -25,6 +25,14 @@ func NewFlow(baseURL string) *Flow {
 	return &Flow{BaseURL: baseURL, Client: &http.Client{Timeout: 15 * time.Second}}
 }
 
+func init() {
+	flowrun.Register(flowrun.Registration{
+		Name:   Name,
+		EnvVar: "CATALOG_URL",
+		New:    func(addr string) (flowrun.Flow, error) { return NewFlow(addr), nil },
+	})
+}
+
 func (f *Flow) Name() string { return Name }
 func (f *Flow) Description() string {
 	return "Product lookup served from the redis cache, falling back to mysql"

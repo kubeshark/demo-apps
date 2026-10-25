@@ -31,6 +31,34 @@ spec:
             - name: INVENTORY_ADDR
               value: {{ .Release.Name }}-inventory:9090
             {{- end }}
+            {{- if .Values.flows.orders.enabled }}
+            - name: ORDERS_URL
+              value: http://{{ .Release.Name }}-orders:8080
+            {{- end }}
+            {{- if .Values.flows.graphql.enabled }}
+            - name: GRAPHQL_URL
+              value: http://{{ .Release.Name }}-graphql:8080
+            {{- end }}
+            {{- if .Values.flows.websocket.enabled }}
+            - name: LIVE_URL
+              value: ws://{{ .Release.Name }}-live:8080
+            {{- end }}
+            {{- if .Values.flows.identity.enabled }}
+            - name: IDENTITY_URL
+              value: http://{{ .Release.Name }}-identity:8080
+            {{- end }}
+            {{- if .Values.flows.telco.enabled }}
+            - name: TELCO_URL
+              value: http://{{ .Release.Name }}-telco:8080
+            {{- end }}
+            {{- if .Values.flows.netprobe.enabled }}
+            - name: NETPROBE_URL
+              value: http://{{ .Release.Name }}-netprobe:8080
+            {{- end }}
+            {{- if .Values.flows.ledger.enabled }}
+            - name: LEDGER_URL
+              value: http://{{ .Release.Name }}-ledger:8080
+            {{- end }}
           ports:
             - name: http
               containerPort: 8080

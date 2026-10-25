@@ -105,3 +105,28 @@ func (h *History) Recent(flow string) []Result {
 	defer h.mu.Unlock()
 	return append([]Result(nil), h.runs[flow]...)
 }
+
+// Registration ties a flow to the environment variable that carries the
+// address of its first hop. The gateway constructs every registered flow
+// whose variable is set; the chart sets exactly the variables of the enabled
+// flows.
+type Registration struct {
+	Name   string
+	EnvVar string
+	New    func(addr string) (Flow, error)
+}
+
+var registry []Registration
+
+func Register(r Registration) {
+	for _, existing := range registry {
+		if existing.Name == r.Name || existing.EnvVar == r.EnvVar {
+			panic("flowrun: duplicate registration " + r.Name)
+		}
+	}
+	registry = append(registry, r)
+}
+
+func Registered() []Registration {
+	return append([]Registration(nil), registry...)
+}

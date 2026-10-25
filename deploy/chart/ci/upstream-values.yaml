@@ -1,0 +1,23 @@
+# Pull every third-party server from its upstream registry instead of the mirror.
+# Used by the kind smoke in CI and for development before the mirrors exist.
+servers:
+  redis:
+    image: {repository: docker.io/library/redis}
+  mysql:
+    image: {repository: docker.io/library/mysql}
+  mongodb:
+    image: {repository: docker.io/library/mongo}
+  postgresql:
+    image: {repository: docker.io/library/postgres}
+  kafka:
+    image: {repository: docker.io/apache/kafka-native}
+  rabbitmq:
+    image: {repository: docker.io/library/rabbitmq}
+  openldap:
+    image: {repository: docker.io/osixia/openldap}
+  freeradius:
+    image: {repository: docker.io/freeradius/freeradius-server}
+  coredns:
+    image: {repository: docker.io/coredns/coredns}
+  mssql:
+    image: {repository: mcr.microsoft.com/mssql/server}

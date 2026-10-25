@@ -1,0 +1,7 @@
+keep	KSKEEP-NETPROBE-HOST-API	hostname label under the zone: dns A question name, srv answer target, coredns zone file
+keep	KSKEEP-NETPROBE-HOST-DB	hostname label under the zone: dns A question name, coredns zone file
+keep	KSKEEP-NETPROBE-HOST6-CACHE	hostname label under the zone: dns AAAA question name, coredns zone file
+keep	KSKEEP-NETPROBE-SRV-SIP	srv service label: dns SRV question name _<marker>._tcp.<zone>, coredns zone file
+keep	KSKEEP-NETPROBE-TXT-NOTE	txt owner label and txt answer text, coredns zone file
+keep	KSKEEP-NETPROBE-MISSING-GHOST	hostname the zone does not hold: dns question answered NXDOMAIN
+keep	KSKEEP-NETPROBE-PROBE-EGRESS	X-Demo-Probe request header on the gateway hop and on every https egress request

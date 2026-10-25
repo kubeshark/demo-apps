@@ -1,0 +1,114 @@
+{{- if include "demo-apps.need" (merge (dict "component" "freeradius") .) }}
+{{- $ctx := dict "root" . "name" "freeradius" }}
+{{- $s := .Values.servers.freeradius }}
+{{- $secret := include "demo-apps.secretName" (dict "root" . "name" "freeradius" "server" $s) }}
+{{- if not $s.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-freeradius
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+stringData:
+  secret: {{ $s.secret | quote }}
+---
+{{- end }}
+{{/*
+The users file is derived from the identity flow's markers: every USER marker
+gets the PASSWORD marker with the same trailing segment, the same pairing the
+identity service uses to seed OpenLDAP.
+*/}}
+{{- $passwords := dict }}
+{{- $users := list }}
+{{- range splitList "\n" (.Files.Get "files/markers/identity.tsv") }}
+  {{- $cols := splitList "\t" . }}
+  {{- if eq (len $cols) 3 }}
+    {{- $value := index $cols 1 }}
+    {{- $parts := splitList "-" $value }}
+    {{- if eq (index $parts 2) "USER" }}{{ $users = append $users $value }}{{ end }}
+    {{- if eq (index $parts 2) "PASSWORD" }}{{ $_ := set $passwords (last $parts) $value }}{{ end }}
+  {{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-freeradius
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+data:
+  clients.conf: |
+    client any {
+        ipaddr = 0.0.0.0/0
+        secret = $ENV{RADIUS_SECRET}
+        require_message_authenticator = yes
+    }
+  authorize: |
+    {{- range $users }}
+    {{ . }}  Cleartext-Password := {{ index $passwords (last (splitList "-" .)) | quote }}
+    {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-freeradius
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: freeradius
+          image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" $s.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["-l", "stdout"]
+          env:
+            - name: RADIUS_SECRET
+              valueFrom:
+                secretKeyRef: {name: {{ $secret }}, key: secret}
+          ports:
+            - name: radius-auth
+              containerPort: 1812
+              protocol: UDP
+            - name: radius-acct
+              containerPort: 1813
+              protocol: UDP
+          volumeMounts:
+            - name: config
+              mountPath: /opt/etc/raddb/clients.conf
+              subPath: clients.conf
+            - name: config
+              mountPath: /opt/etc/raddb/mods-config/files/authorize
+              subPath: authorize
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-freeradius
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-freeradius
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: radius-auth
+      port: 1812
+      targetPort: radius-auth
+      protocol: UDP
+    - name: radius-acct
+      port: 1813
+      targetPort: radius-acct
+      protocol: UDP
+{{- end }}

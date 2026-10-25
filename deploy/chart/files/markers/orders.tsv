@@ -1,0 +1,6 @@
+keep	KSKEEP-ORDERS-SKU-KETTLE	product sku: http request body at the orders service, postgresql products row and orders row, kafka event, amqp message body
+keep	KSKEEP-ORDERS-SKU-TEAPOT	product sku, same carriers
+keep	KSKEEP-ORDERS-SKU-SAUCER	product sku, same carriers
+keep	KSKEEP-ORDERS-CUSTOMER-CAROL	customer name: http request body, postgresql orders row, kafka event, amqp message body
+keep	KSKEEP-ORDERS-NOTE-GIFTWRAP	order note: http request body, postgresql orders row, kafka event, amqp message body
+keep	KSKEEP-ORDERS-ORDER-	order id prefix: http path and body, postgresql primary key, kafka record key, amqp message id and body; a run counter follows it

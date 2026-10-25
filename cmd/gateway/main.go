@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/kubeshark/demo-apps/internal/flowrun"
-	"github.com/kubeshark/demo-apps/internal/flows/catalog"
-	"github.com/kubeshark/demo-apps/internal/flows/inventory"
+	_ "github.com/kubeshark/demo-apps/internal/flows/all"
 	"github.com/kubeshark/demo-apps/internal/httpx"
 )
 
@@ -33,15 +32,16 @@ func main() {
 		history: flowrun.NewHistory(10),
 		page:    template.Must(template.ParseFS(ui, "ui/index.html")),
 	}
-	// A flow is registered when the address of its first hop is configured;
+	// A flow is constructed when the address of its first hop is configured;
 	// the chart sets exactly the addresses of the enabled flows.
-	if u := os.Getenv("CATALOG_URL"); u != "" {
-		g.add(catalog.NewFlow(u))
-	}
-	if a := os.Getenv("INVENTORY_ADDR"); a != "" {
-		f, err := inventory.NewFlow(a)
+	for _, r := range flowrun.Registered() {
+		addr := os.Getenv(r.EnvVar)
+		if addr == "" {
+			continue
+		}
+		f, err := r.New(addr)
 		if err != nil {
-			slog.Error("inventory client", "err", err)
+			slog.Error("flow client", "flow", r.Name, "err", err)
 			os.Exit(1)
 		}
 		g.add(f)

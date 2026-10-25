@@ -1,0 +1,71 @@
+{{- if include "demo-apps.need" (merge (dict "component" "orders") .) }}
+{{- $ctx := dict "root" . "name" "orders" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-orders
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo-apps.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-apps.labels" $ctx | nindent 8 }}
+    spec:
+      containers:
+        - name: orders
+          image: {{ include "demo-apps.image" $ctx }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "demo-apps.securityContext" . | nindent 12 }}
+          env:
+            - name: POSTGRES_ADDR
+              value: {{ .Release.Name }}-postgresql:5432
+            - name: POSTGRES_DB
+              value: {{ .Values.servers.postgresql.database }}
+            - name: POSTGRES_USER
+              value: {{ .Values.servers.postgresql.user }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "postgresql" "server" .Values.servers.postgresql) }}
+                  key: password
+            - name: KAFKA_BROKERS
+              value: {{ .Release.Name }}-kafka:9092
+            - name: KAFKA_USER
+              value: {{ .Values.servers.kafka.user }}
+            - name: KAFKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "demo-apps.secretName" (dict "root" . "name" "kafka" "server" .Values.servers.kafka) }}
+                  key: password
+            - name: KAFKA_PIN_VERSIONS
+              value: {{ .Values.flows.orders.kafkaPinned | quote }}
+            - name: NOTIFIER_URL
+              value: http://{{ .Release.Name }}-notifier:8080
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          resources:
+            {{- toYaml .Values.services.orders.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-orders
+  labels:
+    {{- include "demo-apps.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "demo-apps.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- end }}

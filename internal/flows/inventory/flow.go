@@ -34,6 +34,14 @@ func NewFlow(target string) (*Flow, error) {
 	return &Flow{target: target, client: inventoryv1.NewInventoryServiceClient(conn)}, nil
 }
 
+func init() {
+	flowrun.Register(flowrun.Registration{
+		Name:   Name,
+		EnvVar: "INVENTORY_ADDR",
+		New:    func(addr string) (flowrun.Flow, error) { return NewFlow(addr) },
+	})
+}
+
 func (f *Flow) Name() string { return Name }
 func (f *Flow) Description() string {
 	return "Stock lookup and reservation through the inventory gRPC API"
