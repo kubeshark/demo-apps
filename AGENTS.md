@@ -16,9 +16,18 @@ deploy/chart/files/markers   copies of each markers.tsv for the ConfigMap, gener
 deploy/kubeshark-values.yaml   Kubeshark values that make every flow visible
 hack/                budget check, smoke test, mirror sync (mirror.py)
 terraform/           ECR Public repositories and the CI role, applied by hand
+corpus/expected.yaml minimum entries per dissector a perfshark corpus run must observe
 ```
 
 There is no generated aggregate manifest. The chart is the single description of every workload.
+
+`corpus/expected.yaml` is read by perfshark's corpus build, not by anything here. It is the floor
+each dissector must clear for a corpus cut from these workloads to be accepted, so it has to be
+re-measured whenever a flow's rate, content or enablement changes. The floors sit at 90% of a
+measured healthy run and the observed counts stay in comments beside them; perfshark emits a
+candidate file from a run, which is the only sound way to set them. `tcp` and `udp` are omitted on
+purpose: they count traffic that was not dissected into a higher-layer protocol, so a floor on them
+would fail when a dissector improves.
 
 ## Services
 

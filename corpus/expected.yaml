@@ -1,0 +1,22 @@
+# Minimum entries per dissector a corpus run must observe.
+# Floors are absolute counts, so they hold for this window only.
+# Set at 90% of a measured healthy run. tcp and udp are omitted on
+# purpose: they count traffic that was not dissected, so a floor on
+# them would fail when a dissector improves.
+window: 5m
+
+amqp: 3030  # observed 3374
+diameter: 940  # observed 1048
+dns: 27240  # observed 30270
+http: 17410  # observed 19353
+icmp: 4000  # observed 4449
+kafka: 2320  # observed 2584
+ldap: 2050  # observed 2279
+mongodb: 2090  # observed 2332
+mysql: 2100  # observed 2338
+postgresql: 8410  # observed 9352
+radius: 1480  # observed 1646
+redis: 3020  # observed 3358
+sctp: 8960  # observed 9962
+tls: 6550  # observed 7284
+ws: 5460  # observed 6068
