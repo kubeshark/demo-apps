@@ -2,8 +2,8 @@ apiVersion: v2
 name: demo-apps
 description: Workloads that exercise every Kubeshark protocol dissector, grouped into narratable flows
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "v0.2.0"
 home: https://github.com/kubeshark/demo-apps
 sources:
   - https://github.com/kubeshark/demo-apps
