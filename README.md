@@ -27,6 +27,52 @@ in `cilium-config` and restart the agents; without it the TCP Diameter leg still
 netprobe pod needs the `NET_RAW` capability for ICMP. The ledger flow (MSSQL, 2 GiB) is off by
 default.
 
+## Functional-test reuse
+
+`deploy/chart/values-functional.yaml` is included in every chart archive. It reuses the same
+services, databases and protocol clients as the demo, but disables every flow, TLS, all language
+clients, ingress and external egress. No workloads or Services render until a flow is enabled.
+Enabled flows run every second with `runner.errorEvery=0` and `runner.slowEvery=0`.
+
+Use a disposable namespace per case and the fixed release name `demo-apps` so resource names
+remain `demo-apps-gateway`, `demo-apps-catalog`, etc. For local chart development:
+
+```bash
+helm install demo-apps deploy/chart -n functional-catalog --create-namespace \
+  -f deploy/chart/values-functional.yaml --set flows.catalog.enabled=true \
+  --set global.imageTag=<published-branch-sha7>
+```
+
+Enable `flows.inventory.enabled=true` for gRPC/MongoDB, or select any other existing flow.
+Each selection renders its full dependency set; orders includes Kafka, PostgreSQL, notifier and
+RabbitMQ. Override `flows.<name>.interval` to change the cadence.
+
+Set `runner.http2=true` to make ordinary runner-to-gateway POST requests use cleartext HTTP/2
+prior knowledge, independently of the inventory flow's gRPC traffic. The chart supplies
+`GATEWAY_HTTP2=true`; the runner uses a dedicated transport and leaves external HTTPS traffic
+unchanged. The default remains HTTP/1.1. The gateway accepts both on its plaintext listener.
+Gateway-to-catalog requests remain HTTP/1.1 `GET /products/<sku>`, so GET-field assertions can
+observe that hop without changing the gateway API's POST semantics.
+
+For repeatable OCI runs, pin the exact dev chart version and record the downloaded `.tgz` SHA256
+(the archive checksum, not the OCI manifest digest). Replace `<sha7>` with the published commit:
+
+```bash
+VERSION='0.2.1-functional-workloads.g<sha7>'
+CHART=oci://public.ecr.aws/l3y1d4r0/kubeshark/charts/demo-apps
+tmp=$(mktemp -d)
+helm pull "$CHART" --version "$VERSION" --destination "$tmp"
+sha256sum "$tmp/demo-apps-$VERSION.tgz"
+tar -xzf "$tmp/demo-apps-$VERSION.tgz" -C "$tmp"
+helm install demo-apps "$tmp/demo-apps-$VERSION.tgz" \
+  -n functional-catalog --create-namespace \
+  -f "$tmp/demo-apps/values-functional.yaml" --set flows.catalog.enabled=true
+```
+
+Helm does not automatically apply the bundled preset: pass it with `-f` after extracting it,
+or use the local copy from the matching revision. Leave `global.imageTag` unset for an OCI chart;
+its `appVersion` pins the matching published images. Delete the case namespace after the run.
+
 ## TLS
 
 The gateway, the inventory gRPC API and postgresql also serve TLS from a CA the chart generates
@@ -89,8 +135,18 @@ cd terraform && terraform init && terraform plan && terraform apply
 gh variable set AWS_ROLE_ARN --body "$(terraform output -raw role_arn)"
 ```
 
-From then on every branch push publishes images tagged `<branch>-<sha7>`, a `vX.Y.Z` tag publishes
-images and the chart, and the Mirror workflow keeps `kubeshark/mirror/*` in step with the chart's
+From then on every branch push publishes images tagged `<sanitized-branch>-<sha7>` and, only
+after both Go and language-client images succeed, an OCI chart version
+`0.2.1-<sanitized-branch>.g<sha7>` with the image tag as `appVersion`. Branch names are lowercased,
+characters outside `a-z`, `0-9` and `-` become `-`, repeated hyphens collapse, and the result is
+truncated to 100 characters and stripped of edge hyphens. An empty name becomes `dev`; a purely
+numeric name gets a `branch-` prefix. Thus `functional-workloads` publishes
+`0.2.1-functional-workloads.g<sha7>` with `appVersion: functional-workloads-<sha7>`.
+The `g` keeps the prerelease identifier valid even when the SHA prefix is all digits with a leading
+zero. Use the exact version: prereleases are not selected by Helm's default stable-version lookup.
+
+A `vX.Y.Z` tag still publishes images tagged `vX.Y.Z` and a chart version `X.Y.Z` with
+`appVersion: vX.Y.Z`. The Mirror workflow keeps `kubeshark/mirror/*` in step with the chart's
 pinned server digests (run it once by hand after the first apply).
 
 Layout, invariants and how to add a flow: `AGENTS.md`.

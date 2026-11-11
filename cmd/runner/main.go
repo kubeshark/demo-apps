@@ -50,26 +50,38 @@ func loadConfig(path string) (config, error) {
 }
 
 type runner struct {
-	gatewayURL  string
-	externalURL string
-	client      *http.Client
-	configPath  string
+	gatewayURL     string
+	externalURL    string
+	client         *http.Client
+	externalClient *http.Client
+	configPath     string
 
 	mu      sync.Mutex
 	cfg     config
 	cancels map[string]context.CancelFunc
 }
 
+func gatewayClient(http2 bool) *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Protocols = new(http.Protocols)
+	transport.Protocols.SetHTTP1(!http2)
+	transport.Protocols.SetUnencryptedHTTP2(http2)
+	return &http.Client{Transport: transport, Timeout: 60 * time.Second}
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	r := &runner{
-		gatewayURL:  httpx.Env("GATEWAY_URL", "http://gateway:8080"),
-		externalURL: os.Getenv("EXTERNAL_URL"),
-		client:      &http.Client{Timeout: 60 * time.Second},
-		configPath:  httpx.Env("RUNNER_CONFIG", "/etc/demo-apps/runner.yaml"),
-		cancels:     map[string]context.CancelFunc{},
+		gatewayURL:     httpx.Env("GATEWAY_URL", "http://gateway:8080"),
+		externalURL:    os.Getenv("EXTERNAL_URL"),
+		client:         gatewayClient(os.Getenv("GATEWAY_HTTP2") == "true"),
+		externalClient: &http.Client{Timeout: 60 * time.Second},
+		configPath:     httpx.Env("RUNNER_CONFIG", "/etc/demo-apps/runner.yaml"),
+		cancels:        map[string]context.CancelFunc{},
 	}
+	defer r.client.CloseIdleConnections()
+	defer r.externalClient.CloseIdleConnections()
 	r.reload(ctx)
 	t := time.NewTicker(configPoll)
 	defer t.Stop()
@@ -127,9 +139,9 @@ func (r *runner) loop(ctx context.Context, flow string, every time.Duration) {
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for n := 1; ; n++ {
-		base, source := r.gatewayURL, "runner"
+		base, source, client := r.gatewayURL, "runner", r.client
 		if r.externalURL != "" && n%2 == 0 {
-			base, source = r.externalURL, "runner-external"
+			base, source, client = r.externalURL, "runner-external", r.externalClient
 		}
 		v := r.variant(n)
 		url := fmt.Sprintf("%s/api/flows/%s/run?variant=%s&source=%s", base, flow, v, source)
@@ -138,7 +150,7 @@ func (r *runner) loop(ctx context.Context, flow string, every time.Duration) {
 			slog.Error("request", "flow", flow, "err", err)
 			return
 		}
-		resp, err := r.client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			slog.Warn("run", "flow", flow, "variant", v, "err", err)
 		} else {

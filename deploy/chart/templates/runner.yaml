@@ -43,6 +43,8 @@ spec:
           env:
             - name: GATEWAY_URL
               value: http://{{ .Release.Name }}-gateway:{{ .Values.gateway.service.port }}
+            - name: GATEWAY_HTTP2
+              value: {{ .Values.runner.http2 | quote }}
             {{- with .Values.gateway.externalURL }}
             - name: EXTERNAL_URL
               value: {{ . | quote }}
