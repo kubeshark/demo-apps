@@ -1,0 +1,252 @@
+{{- if eq .Values.tlsFixture.name "boringssl-istio-gateway" }}
+---
+# Self-signed TLS material. Reused across all tls_decryption manifests.
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: istio-gateway-tls
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDfTCCAmWgAwIBAgIUcBmOSsUeHz+2wCqXT1t8ip08jeUwDQYJKoZIhvcNAQEL
+    BQAwGTEXMBUGA1UEAwwOa3ViZXNoYXJrLXRlc3QwIBcNMjYwNTE3MTA1MDAwWhgP
+    MjEyNjA0MjMxMDUwMDBaMBkxFzAVBgNVBAMMDmt1YmVzaGFyay10ZXN0MIIBIjAN
+    BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnz+7/L6BByvdza7B/s4S+Z0VNK5
+    xBjlOiyFiuCc8ML9ESW71y2BXg4Uq9suant/6aQgNC0lUv+i/zTASLQam8DmTLC5
+    GKsjT2XFew38b7d44cZ2bRkqik8TJJifynzDD22+w2iSy++53WkmY8cDN+AAIWuM
+    2BSXp7LNwfb0iD2HPO5jioLhCHLFKZfLCFTSS4acN41wp54F/5VpvD+yqOtjGhrD
+    ip/pKW6E2GjG6nJu/NcFrz2lI3pDbgwCgyxz+Xyb2yEbrolf4DTp3qLQiq0XXbXx
+    sdSF78sroaJLYfw6PcHN89oh+yySJPx5Mf6bjlCsHWlsOl3vW792UZl24wIDAQAB
+    o4G6MIG3MB0GA1UdDgQWBBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAfBgNVHSMEGDAW
+    gBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAPBgNVHRMBAf8EBTADAQH/MGQGA1UdEQRd
+    MFuCEyouc3ZjLmNsdXN0ZXIubG9jYWyCDyouY2x1c3Rlci5sb2NhbIIJbG9jYWxo
+    b3N0ggVtb25nb4IFbXlzcWyCCHBvc3RncmVzggpwb3N0Z3Jlc3FshwR/AAABMA0G
+    CSqGSIb3DQEBCwUAA4IBAQB6VI4R/wGpiBnH5G9lEQffp8EuGsb+jl2H8p5H9GDD
+    /BuyzNOEMNZY0qiIMiYhnbeUl3cS3FA2isVirmVB2sHAj5Wl/nWOWEQaG0USn+bU
+    pnOp8JoNOzavhFqIhqeKcv01ou0WdSBBXAwwyy2AtGxOPqML14aeb+epZGVNm+3I
+    H7m4sIa7CyugqijrAHqZsHP0cD/GeaSjxRnWsVB4atJsCW1Z0913aidWtebmOEzk
+    KJrHgS1xrKCLoOzGLUjTj8fNtCqyaxDXJztsvywSYo+F+Xb770HXICs5x7dkObM2
+    rVSx0WWFZNtgPmh/+6IWSPc0CXril5Hs6ddNOHuS+Igk
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDGfP7v8voEHK93
+    NrsH+zhL5nRU0rnEGOU6LIWK4Jzwwv0RJbvXLYFeDhSr2y5qe3/ppCA0LSVS/6L/
+    NMBItBqbwOZMsLkYqyNPZcV7Dfxvt3jhxnZtGSqKTxMkmJ/KfMMPbb7DaJLL77nd
+    aSZjxwM34AAha4zYFJenss3B9vSIPYc87mOKguEIcsUpl8sIVNJLhpw3jXCnngX/
+    lWm8P7Ko62MaGsOKn+kpboTYaMbqcm781wWvPaUjekNuDAKDLHP5fJvbIRuuiV/g
+    NOneotCKrRddtfGx1IXvyyuhokth/Do9wc3z2iH7LJIk/Hkx/puOUKwdaWw6Xe9b
+    v3ZRmXbjAgMBAAECggEATQZEiCjqDJ51GPYMLlS2y/1qN2Bu5kIi8ihEylfPjz6b
+    pgPWmPH3ueAM9YPgx0GVqb0fIiBC06qQPijiVVRO3xJETI5nxcLjuPPtZotO4qt4
+    JWU2n6+can+1FgaEO7eemmYkGQCDttAYeGtNknqwLQaoBlAOH+wdzd39KsACtLs8
+    S1sjKpB2l8sE/G1Fo0UHYaoXL6CnGph1YoRT/HRecBNdk+vPt/rqKC12h1V8swn0
+    oDzX0EucKT8Bi10qTNcMQCd02zFon/eE5yHCJttks4yvdUK+JahbdgC3g29y71hn
+    8fvQeAqUPUQ9LYv8mqTFkpPumvK4EJTfqMKijDpKgQKBgQDymIddkki/j5e9sz7I
+    sX0mC7lsUux7UKARque+Ow+hwRFed2SoO+BkzFRyb8bMd7EHD/zn229FIIZ1zJw0
+    CgI+rogdtEdmdpwNOe6OeYPsW8UUAqFVEMWvxKZx+TO6F5XfxXsgkHSS7Kcbmf6I
+    IeJCDjVjLo1rUhmcwvOeteZRGwKBgQDRdJMBuYoVeIRptmz1nDst6chEK0D7L4mX
+    Slp/xRHWuCke5SIjpPe0U9hLDW8fzuTC5nm5MhIN/BNXoe7SzTkYT4IC6qHxmdkk
+    R1hh6V+FFvmy+AIi8lOEIGQgSjlayPT5+QDVnRrdp3Cpf94H3cQ/0YF2rzqDfcIv
+    q9vA6R6V2QKBgDUjKctaJmsnNbKMl3z4O5Rgzw2mIDxmjZkxGS+22haxJm/NsROU
+    gfMyOnESgLX6paEJZHkYvIekty8IUVKoupMmQZRYD6em5UmUXeeBQF8+Pq3CYboz
+    QUndxiOC1Uy2q9Jm/DBG0/H2uie2lGUXHusfF5yQ7tMKGagXn6ss5rTvAoGAZUVu
+    +quB5yWxKAerIQnb1zQsv0EGlyyB4yNxJEvddyrtvuFco01U8tyDPK6PJxr6on2b
+    Jv7dmeNiWsGR3lyZmXZ/zvcxO8Z+JbtVMWoL5CaarnyZU9pEpSKgJriciJeXUvGh
+    BKeEYN1fbKTFbpo8E/sxFHhe20rHxBLdGqXcQukCgYEAt2EiPlUzx3mY3PTx7ckM
+    iIaX6iB9GVprVGiC6ZUF8ExZPwXEiS4If9nNxmzJSsutRjOliEElgvqVMofjlDzZ
+    DgXgczgkN0X10h/TWnMRVvae6IjqkgAakgFPGIf4jIBNSgqNoOOozf9E/nR1SOvd
+    3A6iZgGFsat4Bz0zz77g6eU=
+    -----END PRIVATE KEY-----
+---
+# Same envoy bootstrap config used in envoy-tls.yaml. The point of this case
+# is not to test a different config - it's to test that Kubeshark's BoringSSL
+# tracer hooks work against the Envoy BUILD shipped by Istio's proxyv2 image
+# (statically-linked BoringSSL, different binary hash from envoyproxy/envoy).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: istio-gateway-config
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+        - name: https_listener
+          address:
+            socket_address: { address: 0.0.0.0, port_value: 10443 }
+          filter_chains:
+            - filters:
+                - name: envoy.filters.network.http_connection_manager
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                    stat_prefix: ingress_https
+                    route_config:
+                      name: local_route
+                      virtual_hosts:
+                        - name: backend
+                          domains: ["*"]
+                          routes:
+                            - match: { prefix: "/" }
+                              route: { cluster: echo_backend }
+                    http_filters:
+                      - name: envoy.filters.http.router
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+              transport_socket:
+                name: envoy.transport_sockets.tls
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+                  common_tls_context:
+                    tls_certificates:
+                      - certificate_chain: { filename: /etc/envoy/certs/tls.crt }
+                        private_key:       { filename: /etc/envoy/certs/tls.key }
+      clusters:
+        - name: echo_backend
+          type: STRICT_DNS
+          load_assignment:
+            cluster_name: echo_backend
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address: { address: echo-server, port_value: 8080 }
+    admin:
+      address:
+        socket_address: { address: 0.0.0.0, port_value: 9901 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: echo-server
+  labels: { app: echo-server }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: echo-server }
+  template:
+    metadata:
+      labels: { app: echo-server }
+    spec:
+      containers:
+      - name: echo-server
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 2
+          failureThreshold: 60
+        image: docker.io/hashicorp/http-echo:latest@sha256:fcb75f691c8b0414d670ae570240cbf95502cc18a9ba57e982ecac589760a186
+        args: ["-text=hello from echo-server behind istio-gateway envoy", "-listen=:8080"]
+        ports:
+        - containerPort: 8080
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: echo-server
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: echo-server
+---
+# istio-gateway = istio/proxyv2 image run as a vanilla envoy with a static
+# bootstrap config. Bypasses pilot-agent (which would otherwise try to fetch
+# config from istiod over xDS). The envoy binary at /usr/local/bin/envoy
+# inside proxyv2 is Istio's BoringSSL build - different binary hash from
+# envoyproxy/envoy, registered separately in registry-go-tls's offsets bundle.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: istio-gateway
+  labels: { app: istio-gateway }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: istio-gateway }
+  template:
+    metadata:
+      labels: { app: istio-gateway }
+    spec:
+      containers:
+      - name: envoy
+        image: docker.io/istio/proxyv2:1.25.1@sha256:640733abb924663df83761e2ec95a2bddca797daf1ca37672ec0b045969cdeb1
+        command: ["/usr/local/bin/envoy"]
+        args: ["-c", "/etc/envoy/envoy.yaml"]
+        ports:
+        - { name: https, containerPort: 10443 }
+        - { name: admin, containerPort: 9901 }
+        volumeMounts:
+        - { name: config, mountPath: /etc/envoy,       readOnly: true }
+        - { name: certs,  mountPath: /etc/envoy/certs, readOnly: true }
+        readinessProbe:
+          httpGet: { path: /ready, port: 9901 }
+          initialDelaySeconds: 3
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: istio-gateway-config
+      - name: certs
+        secret:
+          secretName: istio-gateway-tls
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: istio-gateway
+spec:
+  ports:
+  - { name: https, port: 443, targetPort: 10443 }
+  selector:
+    app: istio-gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: istio-gateway-traffic-generator
+  labels: { app: istio-gateway-traffic-generator }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: istio-gateway-traffic-generator }
+  template:
+    metadata:
+      labels: { app: istio-gateway-traffic-generator }
+    spec:
+      containers:
+      - name: client
+        image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+        env:
+        - { name: MARKER_PREFIX,    value: {{ .Values.tlsFixture.markerPrefix | quote }} }
+        - { name: EXPECTED_MARKERS, value: {{ .Values.tlsFixture.markerCount | quote }} }
+        command:
+        - sh
+        - -c
+        - |
+          set -eu
+          : "${MARKER_PREFIX:?missing}"
+          : "${EXPECTED_MARKERS:?missing}"
+          while true; do
+            for i in $(seq 1 "${EXPECTED_MARKERS}"); do
+              curl -sk --max-time 5 \
+                "https://istio-gateway/test/${MARKER_PREFIX}_seq${i}" \
+                -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
+                || echo "send failed"
+            done
+            sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+          done
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- end }}

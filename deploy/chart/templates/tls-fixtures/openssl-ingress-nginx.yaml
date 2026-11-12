@@ -1,0 +1,522 @@
+{{- if eq .Values.tlsFixture.name "openssl-ingress-nginx" }}
+{{- $clusterName := include "demo-apps.tlsFixtureClusterName" (dict "root" . "suffix" "nginx") }}
+# Rendered from `helm template ingress-nginx/ingress-nginx --version 4.15.1
+#   --set controller.admissionWebhooks.enabled=false`
+# plus a self-signed TLS secret + echo-server backend + Ingress + traffic generator.
+# Cluster identities are namespace-qualified and namespaced permissions stay in the Role.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: ingress-nginx-tls
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDfTCCAmWgAwIBAgIUcBmOSsUeHz+2wCqXT1t8ip08jeUwDQYJKoZIhvcNAQEL
+    BQAwGTEXMBUGA1UEAwwOa3ViZXNoYXJrLXRlc3QwIBcNMjYwNTE3MTA1MDAwWhgP
+    MjEyNjA0MjMxMDUwMDBaMBkxFzAVBgNVBAMMDmt1YmVzaGFyay10ZXN0MIIBIjAN
+    BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnz+7/L6BByvdza7B/s4S+Z0VNK5
+    xBjlOiyFiuCc8ML9ESW71y2BXg4Uq9suant/6aQgNC0lUv+i/zTASLQam8DmTLC5
+    GKsjT2XFew38b7d44cZ2bRkqik8TJJifynzDD22+w2iSy++53WkmY8cDN+AAIWuM
+    2BSXp7LNwfb0iD2HPO5jioLhCHLFKZfLCFTSS4acN41wp54F/5VpvD+yqOtjGhrD
+    ip/pKW6E2GjG6nJu/NcFrz2lI3pDbgwCgyxz+Xyb2yEbrolf4DTp3qLQiq0XXbXx
+    sdSF78sroaJLYfw6PcHN89oh+yySJPx5Mf6bjlCsHWlsOl3vW792UZl24wIDAQAB
+    o4G6MIG3MB0GA1UdDgQWBBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAfBgNVHSMEGDAW
+    gBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAPBgNVHRMBAf8EBTADAQH/MGQGA1UdEQRd
+    MFuCEyouc3ZjLmNsdXN0ZXIubG9jYWyCDyouY2x1c3Rlci5sb2NhbIIJbG9jYWxo
+    b3N0ggVtb25nb4IFbXlzcWyCCHBvc3RncmVzggpwb3N0Z3Jlc3FshwR/AAABMA0G
+    CSqGSIb3DQEBCwUAA4IBAQB6VI4R/wGpiBnH5G9lEQffp8EuGsb+jl2H8p5H9GDD
+    /BuyzNOEMNZY0qiIMiYhnbeUl3cS3FA2isVirmVB2sHAj5Wl/nWOWEQaG0USn+bU
+    pnOp8JoNOzavhFqIhqeKcv01ou0WdSBBXAwwyy2AtGxOPqML14aeb+epZGVNm+3I
+    H7m4sIa7CyugqijrAHqZsHP0cD/GeaSjxRnWsVB4atJsCW1Z0913aidWtebmOEzk
+    KJrHgS1xrKCLoOzGLUjTj8fNtCqyaxDXJztsvywSYo+F+Xb770HXICs5x7dkObM2
+    rVSx0WWFZNtgPmh/+6IWSPc0CXril5Hs6ddNOHuS+Igk
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDGfP7v8voEHK93
+    NrsH+zhL5nRU0rnEGOU6LIWK4Jzwwv0RJbvXLYFeDhSr2y5qe3/ppCA0LSVS/6L/
+    NMBItBqbwOZMsLkYqyNPZcV7Dfxvt3jhxnZtGSqKTxMkmJ/KfMMPbb7DaJLL77nd
+    aSZjxwM34AAha4zYFJenss3B9vSIPYc87mOKguEIcsUpl8sIVNJLhpw3jXCnngX/
+    lWm8P7Ko62MaGsOKn+kpboTYaMbqcm781wWvPaUjekNuDAKDLHP5fJvbIRuuiV/g
+    NOneotCKrRddtfGx1IXvyyuhokth/Do9wc3z2iH7LJIk/Hkx/puOUKwdaWw6Xe9b
+    v3ZRmXbjAgMBAAECggEATQZEiCjqDJ51GPYMLlS2y/1qN2Bu5kIi8ihEylfPjz6b
+    pgPWmPH3ueAM9YPgx0GVqb0fIiBC06qQPijiVVRO3xJETI5nxcLjuPPtZotO4qt4
+    JWU2n6+can+1FgaEO7eemmYkGQCDttAYeGtNknqwLQaoBlAOH+wdzd39KsACtLs8
+    S1sjKpB2l8sE/G1Fo0UHYaoXL6CnGph1YoRT/HRecBNdk+vPt/rqKC12h1V8swn0
+    oDzX0EucKT8Bi10qTNcMQCd02zFon/eE5yHCJttks4yvdUK+JahbdgC3g29y71hn
+    8fvQeAqUPUQ9LYv8mqTFkpPumvK4EJTfqMKijDpKgQKBgQDymIddkki/j5e9sz7I
+    sX0mC7lsUux7UKARque+Ow+hwRFed2SoO+BkzFRyb8bMd7EHD/zn229FIIZ1zJw0
+    CgI+rogdtEdmdpwNOe6OeYPsW8UUAqFVEMWvxKZx+TO6F5XfxXsgkHSS7Kcbmf6I
+    IeJCDjVjLo1rUhmcwvOeteZRGwKBgQDRdJMBuYoVeIRptmz1nDst6chEK0D7L4mX
+    Slp/xRHWuCke5SIjpPe0U9hLDW8fzuTC5nm5MhIN/BNXoe7SzTkYT4IC6qHxmdkk
+    R1hh6V+FFvmy+AIi8lOEIGQgSjlayPT5+QDVnRrdp3Cpf94H3cQ/0YF2rzqDfcIv
+    q9vA6R6V2QKBgDUjKctaJmsnNbKMl3z4O5Rgzw2mIDxmjZkxGS+22haxJm/NsROU
+    gfMyOnESgLX6paEJZHkYvIekty8IUVKoupMmQZRYD6em5UmUXeeBQF8+Pq3CYboz
+    QUndxiOC1Uy2q9Jm/DBG0/H2uie2lGUXHusfF5yQ7tMKGagXn6ss5rTvAoGAZUVu
+    +quB5yWxKAerIQnb1zQsv0EGlyyB4yNxJEvddyrtvuFco01U8tyDPK6PJxr6on2b
+    Jv7dmeNiWsGR3lyZmXZ/zvcxO8Z+JbtVMWoL5CaarnyZU9pEpSKgJriciJeXUvGh
+    BKeEYN1fbKTFbpo8E/sxFHhe20rHxBLdGqXcQukCgYEAt2EiPlUzx3mY3PTx7ckM
+    iIaX6iB9GVprVGiC6ZUF8ExZPwXEiS4If9nNxmzJSsutRjOliEElgvqVMofjlDzZ
+    DgXgczgkN0X10h/TWnMRVvae6IjqkgAakgFPGIf4jIBNSgqNoOOozf9E/nR1SOvd
+    3A6iZgGFsat4Bz0zz77g6eU=
+    -----END PRIVATE KEY-----
+---
+# Source: ingress-nginx/templates/controller-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: ingress-nginx
+  namespace: {{ .Release.Namespace | quote }}
+automountServiceAccountToken: true
+---
+# Source: ingress-nginx/templates/controller-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: ingress-nginx-controller
+  namespace: {{ .Release.Namespace | quote }}
+data:
+---
+# Source: ingress-nginx/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+  name: {{ $clusterName }}
+rules:
+  - apiGroups: [""]
+    resources: [nodes, namespaces]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingressclasses]
+    verbs: [get, list, watch]
+---
+# Source: ingress-nginx/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+  name: {{ $clusterName }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $clusterName }}
+subjects:
+  - kind: ServiceAccount
+    name: ingress-nginx
+    namespace: {{ .Release.Namespace | quote }}
+---
+# Source: ingress-nginx/templates/controller-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: ingress-nginx
+  namespace: {{ .Release.Namespace | quote }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - endpoints
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  # Omit Ingress status permissions if `--update-status` is disabled.
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    resourceNames:
+      - ingress-nginx-leader
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - list
+      - watch
+      - get
+---
+# Source: ingress-nginx/templates/controller-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: ingress-nginx
+  namespace: {{ .Release.Namespace | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ingress-nginx
+subjects:
+  - kind: ServiceAccount
+    name: ingress-nginx
+    namespace: {{ .Release.Namespace | quote }}
+---
+# Source: ingress-nginx/templates/controller-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: ingress-nginx-controller
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  type: ClusterIP
+  ipFamilyPolicy: SingleStack
+  ipFamilies: 
+    - IPv4
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+      appProtocol: http
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: https
+      appProtocol: https
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/component: controller
+---
+# Source: ingress-nginx/templates/controller-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: ingress-nginx-controller
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+      app.kubernetes.io/instance: ingress-nginx
+      app.kubernetes.io/component: controller
+  replicas: 1
+  revisionHistoryLimit: 10
+  minReadySeconds: 0
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: ingress-nginx-4.15.1
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/instance: ingress-nginx
+        app.kubernetes.io/version: "1.15.1"
+        app.kubernetes.io/part-of: ingress-nginx
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: controller
+    spec:
+      dnsPolicy: ClusterFirst
+      containers:
+        - name: controller
+          image: registry.k8s.io/ingress-nginx/controller:v1.15.1@sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1
+          imagePullPolicy: IfNotPresent
+          lifecycle: 
+            preStop:
+              exec:
+                command:
+                - /wait-shutdown
+          args: 
+            - /nginx-ingress-controller
+            - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+            - --election-id=ingress-nginx-leader
+            - --controller-class=demo-apps.kubeshark.co/{{ $clusterName }}
+            - --ingress-class={{ $clusterName }}
+            - --watch-namespace={{ .Release.Namespace }}
+            - --watch-ingress-without-class=false
+            - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+          securityContext: 
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 82
+            allowPrivilegeEscalation: false
+            seccompProfile: 
+              type: RuntimeDefault
+            capabilities:
+              drop:
+              - ALL
+              add:
+              - NET_BIND_SERVICE
+            readOnlyRootFilesystem: false
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: LD_PRELOAD
+              value: /usr/local/lib/libmimalloc.so
+          livenessProbe: 
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe: 
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          resources: 
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      nodeSelector: 
+        kubernetes.io/os: linux
+      serviceAccountName: ingress-nginx
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 300
+---
+# Source: ingress-nginx/templates/controller-ingressclass.yaml
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  labels:
+    helm.sh/chart: ingress-nginx-4.15.1
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/version: "1.15.1"
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+  name: {{ $clusterName }}
+spec:
+  controller: demo-apps.kubeshark.co/{{ $clusterName }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: echo-server
+  labels: { app: echo-server }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: echo-server }
+  template:
+    metadata:
+      labels: { app: echo-server }
+    spec:
+      containers:
+      - name: echo-server
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 2
+          failureThreshold: 60
+        image: docker.io/hashicorp/http-echo:latest@sha256:fcb75f691c8b0414d670ae570240cbf95502cc18a9ba57e982ecac589760a186
+        args:
+          - "-text=hello from echo-server behind ingress-nginx"
+          - "-listen=:8080"
+        ports:
+        - containerPort: 8080
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: echo-server
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: echo-server
+---
+# Ingress routes incoming HTTPS to echo-server. Host wildcard so curl-with-Host
+# works without DNS games. The TLS section binds our self-signed cert.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: echo
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: {{ $clusterName }}
+  tls:
+    - hosts:
+        - echo.demo.local
+      secretName: ingress-nginx-tls
+  rules:
+    - host: echo.demo.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: echo-server
+                port:
+                  number: 8080
+---
+# Traffic generator - curl loop hitting the ingress-nginx controller service
+# over HTTPS with the Host header set to match the Ingress rule. Marker rides
+# in the URL path so it surfaces in HTTP request_url after decryption.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: ingress-nginx-traffic-generator
+  labels: { app: ingress-nginx-traffic-generator }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ingress-nginx-traffic-generator }
+  template:
+    metadata:
+      labels: { app: ingress-nginx-traffic-generator }
+    spec:
+      containers:
+      - name: client
+        image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+        env:
+        - { name: MARKER_PREFIX,    value: {{ .Values.tlsFixture.markerPrefix | quote }} }
+        - { name: EXPECTED_MARKERS, value: {{ .Values.tlsFixture.markerCount | quote }} }
+        command:
+        - sh
+        - -c
+        - |
+          set -eu
+          : "${MARKER_PREFIX:?missing}"
+          : "${EXPECTED_MARKERS:?missing}"
+          while true; do
+            for i in $(seq 1 "${EXPECTED_MARKERS}"); do
+              curl -sk --max-time 5 \
+                -H "Host: echo.demo.local" \
+                "https://ingress-nginx-controller/test/${MARKER_PREFIX}_seq${i}" \
+                -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
+                || echo "send failed"
+            done
+            sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+          done
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- end }}
