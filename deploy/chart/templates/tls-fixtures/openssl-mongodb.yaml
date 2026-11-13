@@ -1,0 +1,185 @@
+{{- if eq .Values.tlsFixture.name "openssl-mongodb" }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: mongo-tls
+type: Opaque
+stringData:
+  # Combined key+cert (mongo expects single PEM with both). Self-signed,
+  # SAN covers *.svc.cluster.local + common service short-names.
+  # Test cert only - committed in-repo intentionally.
+  server.pem: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDGfP7v8voEHK93
+    NrsH+zhL5nRU0rnEGOU6LIWK4Jzwwv0RJbvXLYFeDhSr2y5qe3/ppCA0LSVS/6L/
+    NMBItBqbwOZMsLkYqyNPZcV7Dfxvt3jhxnZtGSqKTxMkmJ/KfMMPbb7DaJLL77nd
+    aSZjxwM34AAha4zYFJenss3B9vSIPYc87mOKguEIcsUpl8sIVNJLhpw3jXCnngX/
+    lWm8P7Ko62MaGsOKn+kpboTYaMbqcm781wWvPaUjekNuDAKDLHP5fJvbIRuuiV/g
+    NOneotCKrRddtfGx1IXvyyuhokth/Do9wc3z2iH7LJIk/Hkx/puOUKwdaWw6Xe9b
+    v3ZRmXbjAgMBAAECggEATQZEiCjqDJ51GPYMLlS2y/1qN2Bu5kIi8ihEylfPjz6b
+    pgPWmPH3ueAM9YPgx0GVqb0fIiBC06qQPijiVVRO3xJETI5nxcLjuPPtZotO4qt4
+    JWU2n6+can+1FgaEO7eemmYkGQCDttAYeGtNknqwLQaoBlAOH+wdzd39KsACtLs8
+    S1sjKpB2l8sE/G1Fo0UHYaoXL6CnGph1YoRT/HRecBNdk+vPt/rqKC12h1V8swn0
+    oDzX0EucKT8Bi10qTNcMQCd02zFon/eE5yHCJttks4yvdUK+JahbdgC3g29y71hn
+    8fvQeAqUPUQ9LYv8mqTFkpPumvK4EJTfqMKijDpKgQKBgQDymIddkki/j5e9sz7I
+    sX0mC7lsUux7UKARque+Ow+hwRFed2SoO+BkzFRyb8bMd7EHD/zn229FIIZ1zJw0
+    CgI+rogdtEdmdpwNOe6OeYPsW8UUAqFVEMWvxKZx+TO6F5XfxXsgkHSS7Kcbmf6I
+    IeJCDjVjLo1rUhmcwvOeteZRGwKBgQDRdJMBuYoVeIRptmz1nDst6chEK0D7L4mX
+    Slp/xRHWuCke5SIjpPe0U9hLDW8fzuTC5nm5MhIN/BNXoe7SzTkYT4IC6qHxmdkk
+    R1hh6V+FFvmy+AIi8lOEIGQgSjlayPT5+QDVnRrdp3Cpf94H3cQ/0YF2rzqDfcIv
+    q9vA6R6V2QKBgDUjKctaJmsnNbKMl3z4O5Rgzw2mIDxmjZkxGS+22haxJm/NsROU
+    gfMyOnESgLX6paEJZHkYvIekty8IUVKoupMmQZRYD6em5UmUXeeBQF8+Pq3CYboz
+    QUndxiOC1Uy2q9Jm/DBG0/H2uie2lGUXHusfF5yQ7tMKGagXn6ss5rTvAoGAZUVu
+    +quB5yWxKAerIQnb1zQsv0EGlyyB4yNxJEvddyrtvuFco01U8tyDPK6PJxr6on2b
+    Jv7dmeNiWsGR3lyZmXZ/zvcxO8Z+JbtVMWoL5CaarnyZU9pEpSKgJriciJeXUvGh
+    BKeEYN1fbKTFbpo8E/sxFHhe20rHxBLdGqXcQukCgYEAt2EiPlUzx3mY3PTx7ckM
+    iIaX6iB9GVprVGiC6ZUF8ExZPwXEiS4If9nNxmzJSsutRjOliEElgvqVMofjlDzZ
+    DgXgczgkN0X10h/TWnMRVvae6IjqkgAakgFPGIf4jIBNSgqNoOOozf9E/nR1SOvd
+    3A6iZgGFsat4Bz0zz77g6eU=
+    -----END PRIVATE KEY-----
+    -----BEGIN CERTIFICATE-----
+    MIIDfTCCAmWgAwIBAgIUcBmOSsUeHz+2wCqXT1t8ip08jeUwDQYJKoZIhvcNAQEL
+    BQAwGTEXMBUGA1UEAwwOa3ViZXNoYXJrLXRlc3QwIBcNMjYwNTE3MTA1MDAwWhgP
+    MjEyNjA0MjMxMDUwMDBaMBkxFzAVBgNVBAMMDmt1YmVzaGFyay10ZXN0MIIBIjAN
+    BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnz+7/L6BByvdza7B/s4S+Z0VNK5
+    xBjlOiyFiuCc8ML9ESW71y2BXg4Uq9suant/6aQgNC0lUv+i/zTASLQam8DmTLC5
+    GKsjT2XFew38b7d44cZ2bRkqik8TJJifynzDD22+w2iSy++53WkmY8cDN+AAIWuM
+    2BSXp7LNwfb0iD2HPO5jioLhCHLFKZfLCFTSS4acN41wp54F/5VpvD+yqOtjGhrD
+    ip/pKW6E2GjG6nJu/NcFrz2lI3pDbgwCgyxz+Xyb2yEbrolf4DTp3qLQiq0XXbXx
+    sdSF78sroaJLYfw6PcHN89oh+yySJPx5Mf6bjlCsHWlsOl3vW792UZl24wIDAQAB
+    o4G6MIG3MB0GA1UdDgQWBBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAfBgNVHSMEGDAW
+    gBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAPBgNVHRMBAf8EBTADAQH/MGQGA1UdEQRd
+    MFuCEyouc3ZjLmNsdXN0ZXIubG9jYWyCDyouY2x1c3Rlci5sb2NhbIIJbG9jYWxo
+    b3N0ggVtb25nb4IFbXlzcWyCCHBvc3RncmVzggpwb3N0Z3Jlc3FshwR/AAABMA0G
+    CSqGSIb3DQEBCwUAA4IBAQB6VI4R/wGpiBnH5G9lEQffp8EuGsb+jl2H8p5H9GDD
+    /BuyzNOEMNZY0qiIMiYhnbeUl3cS3FA2isVirmVB2sHAj5Wl/nWOWEQaG0USn+bU
+    pnOp8JoNOzavhFqIhqeKcv01ou0WdSBBXAwwyy2AtGxOPqML14aeb+epZGVNm+3I
+    H7m4sIa7CyugqijrAHqZsHP0cD/GeaSjxRnWsVB4atJsCW1Z0913aidWtebmOEzk
+    KJrHgS1xrKCLoOzGLUjTj8fNtCqyaxDXJztsvywSYo+F+Xb770HXICs5x7dkObM2
+    rVSx0WWFZNtgPmh/+6IWSPc0CXril5Hs6ddNOHuS+Igk
+    -----END CERTIFICATE-----
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: mongo
+  labels: { app: mongo }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: mongo }
+  template:
+    metadata:
+      labels: { app: mongo }
+    spec:
+      containers:
+      - name: mongo
+        readinessProbe:
+          tcpSocket:
+            port: 27017
+          periodSeconds: 2
+          failureThreshold: 60
+        image: docker.io/mongo:8.0.26@sha256:3ce3de7f40e914034b03b7dec654005ab54f7dc8306937e44ec6760d9e9409a1
+        args:
+          - "--bind_ip_all"
+          - "--tlsMode=requireTLS"
+          - "--tlsCertificateKeyFile=/etc/mongo-tls/server.pem"
+          # Self-signed CA = the server cert itself. Mongo 8 refuses to start
+          # otherwise: "TLS without specifying a chain of trust is no longer supported".
+          - "--tlsCAFile=/etc/mongo-tls/server.pem"
+          - "--tlsAllowConnectionsWithoutCertificates"
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: tls
+          mountPath: /etc/mongo-tls
+          readOnly: true
+      volumes:
+      - name: tls
+        secret:
+          secretName: mongo-tls
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: mongo
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+  selector:
+    app: mongo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: mongo-traffic-script
+data:
+  send.sh: |
+    #!/bin/sh
+    set -e
+    : "${MARKER_PREFIX:?missing}"
+    : "${EXPECTED_MARKERS:?missing}"
+
+    # Build JS that inserts EXPECTED_MARKERS docs, each carrying a unique marker.
+    JS=""
+    i=1
+    while [ "$i" -le "$EXPECTED_MARKERS" ]; do
+      JS="${JS} db.tls_test.insertOne({marker:'${MARKER_PREFIX}_seq${i}', i:${i}});"
+      i=$((i + 1))
+    done
+    JS="${JS} db.tls_test.deleteMany({});"
+
+    echo "Sending markers: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS} (loop)"
+    while true; do
+      mongosh \
+        --tls \
+        --tlsAllowInvalidCertificates \
+        --tlsAllowInvalidHostnames \
+        "mongodb://mongo:27017/testdb" \
+        --quiet \
+        --eval "$JS" || echo "send failed, retrying"
+      sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+    done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: mongo-traffic-generator
+  labels: { app: mongo-traffic-generator }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: mongo-traffic-generator }
+  template:
+    metadata:
+      labels: { app: mongo-traffic-generator }
+    spec:
+      containers:
+      - name: client
+        image: docker.io/mongo:8.0.26@sha256:3ce3de7f40e914034b03b7dec654005ab54f7dc8306937e44ec6760d9e9409a1
+        command: ["/bin/sh", "/scripts/send.sh"]
+        env:
+        - name: MARKER_PREFIX
+          value: {{ .Values.tlsFixture.markerPrefix | quote }}
+        - name: EXPECTED_MARKERS
+          value: {{ .Values.tlsFixture.markerCount | quote }}
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+      volumes:
+      - name: scripts
+        configMap:
+          name: mongo-traffic-script
+          defaultMode: 0755
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- end }}

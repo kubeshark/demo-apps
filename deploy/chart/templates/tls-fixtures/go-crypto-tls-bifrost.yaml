@@ -1,0 +1,274 @@
+{{- if eq .Values.tlsFixture.name "go-crypto-tls-bifrost" }}
+---
+# Self-signed TLS material for the in-cluster litellm mock. Same cert as the
+# other tls_decryption manifests (test-only, repo-committed). The SAN doesn't
+# need to cover the litellm hostname because bifrost connects with
+# insecure_skip_verify=true - we're verifying TLS *decryption*, not TLS *trust*.
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: litellm-tls
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDfTCCAmWgAwIBAgIUcBmOSsUeHz+2wCqXT1t8ip08jeUwDQYJKoZIhvcNAQEL
+    BQAwGTEXMBUGA1UEAwwOa3ViZXNoYXJrLXRlc3QwIBcNMjYwNTE3MTA1MDAwWhgP
+    MjEyNjA0MjMxMDUwMDBaMBkxFzAVBgNVBAMMDmt1YmVzaGFyay10ZXN0MIIBIjAN
+    BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnz+7/L6BByvdza7B/s4S+Z0VNK5
+    xBjlOiyFiuCc8ML9ESW71y2BXg4Uq9suant/6aQgNC0lUv+i/zTASLQam8DmTLC5
+    GKsjT2XFew38b7d44cZ2bRkqik8TJJifynzDD22+w2iSy++53WkmY8cDN+AAIWuM
+    2BSXp7LNwfb0iD2HPO5jioLhCHLFKZfLCFTSS4acN41wp54F/5VpvD+yqOtjGhrD
+    ip/pKW6E2GjG6nJu/NcFrz2lI3pDbgwCgyxz+Xyb2yEbrolf4DTp3qLQiq0XXbXx
+    sdSF78sroaJLYfw6PcHN89oh+yySJPx5Mf6bjlCsHWlsOl3vW792UZl24wIDAQAB
+    o4G6MIG3MB0GA1UdDgQWBBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAfBgNVHSMEGDAW
+    gBRTFFxjRiRz5oxHOPTJ2cna5gGzvDAPBgNVHRMBAf8EBTADAQH/MGQGA1UdEQRd
+    MFuCEyouc3ZjLmNsdXN0ZXIubG9jYWyCDyouY2x1c3Rlci5sb2NhbIIJbG9jYWxo
+    b3N0ggVtb25nb4IFbXlzcWyCCHBvc3RncmVzggpwb3N0Z3Jlc3FshwR/AAABMA0G
+    CSqGSIb3DQEBCwUAA4IBAQB6VI4R/wGpiBnH5G9lEQffp8EuGsb+jl2H8p5H9GDD
+    /BuyzNOEMNZY0qiIMiYhnbeUl3cS3FA2isVirmVB2sHAj5Wl/nWOWEQaG0USn+bU
+    pnOp8JoNOzavhFqIhqeKcv01ou0WdSBBXAwwyy2AtGxOPqML14aeb+epZGVNm+3I
+    H7m4sIa7CyugqijrAHqZsHP0cD/GeaSjxRnWsVB4atJsCW1Z0913aidWtebmOEzk
+    KJrHgS1xrKCLoOzGLUjTj8fNtCqyaxDXJztsvywSYo+F+Xb770HXICs5x7dkObM2
+    rVSx0WWFZNtgPmh/+6IWSPc0CXril5Hs6ddNOHuS+Igk
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDGfP7v8voEHK93
+    NrsH+zhL5nRU0rnEGOU6LIWK4Jzwwv0RJbvXLYFeDhSr2y5qe3/ppCA0LSVS/6L/
+    NMBItBqbwOZMsLkYqyNPZcV7Dfxvt3jhxnZtGSqKTxMkmJ/KfMMPbb7DaJLL77nd
+    aSZjxwM34AAha4zYFJenss3B9vSIPYc87mOKguEIcsUpl8sIVNJLhpw3jXCnngX/
+    lWm8P7Ko62MaGsOKn+kpboTYaMbqcm781wWvPaUjekNuDAKDLHP5fJvbIRuuiV/g
+    NOneotCKrRddtfGx1IXvyyuhokth/Do9wc3z2iH7LJIk/Hkx/puOUKwdaWw6Xe9b
+    v3ZRmXbjAgMBAAECggEATQZEiCjqDJ51GPYMLlS2y/1qN2Bu5kIi8ihEylfPjz6b
+    pgPWmPH3ueAM9YPgx0GVqb0fIiBC06qQPijiVVRO3xJETI5nxcLjuPPtZotO4qt4
+    JWU2n6+can+1FgaEO7eemmYkGQCDttAYeGtNknqwLQaoBlAOH+wdzd39KsACtLs8
+    S1sjKpB2l8sE/G1Fo0UHYaoXL6CnGph1YoRT/HRecBNdk+vPt/rqKC12h1V8swn0
+    oDzX0EucKT8Bi10qTNcMQCd02zFon/eE5yHCJttks4yvdUK+JahbdgC3g29y71hn
+    8fvQeAqUPUQ9LYv8mqTFkpPumvK4EJTfqMKijDpKgQKBgQDymIddkki/j5e9sz7I
+    sX0mC7lsUux7UKARque+Ow+hwRFed2SoO+BkzFRyb8bMd7EHD/zn229FIIZ1zJw0
+    CgI+rogdtEdmdpwNOe6OeYPsW8UUAqFVEMWvxKZx+TO6F5XfxXsgkHSS7Kcbmf6I
+    IeJCDjVjLo1rUhmcwvOeteZRGwKBgQDRdJMBuYoVeIRptmz1nDst6chEK0D7L4mX
+    Slp/xRHWuCke5SIjpPe0U9hLDW8fzuTC5nm5MhIN/BNXoe7SzTkYT4IC6qHxmdkk
+    R1hh6V+FFvmy+AIi8lOEIGQgSjlayPT5+QDVnRrdp3Cpf94H3cQ/0YF2rzqDfcIv
+    q9vA6R6V2QKBgDUjKctaJmsnNbKMl3z4O5Rgzw2mIDxmjZkxGS+22haxJm/NsROU
+    gfMyOnESgLX6paEJZHkYvIekty8IUVKoupMmQZRYD6em5UmUXeeBQF8+Pq3CYboz
+    QUndxiOC1Uy2q9Jm/DBG0/H2uie2lGUXHusfF5yQ7tMKGagXn6ss5rTvAoGAZUVu
+    +quB5yWxKAerIQnb1zQsv0EGlyyB4yNxJEvddyrtvuFco01U8tyDPK6PJxr6on2b
+    Jv7dmeNiWsGR3lyZmXZ/zvcxO8Z+JbtVMWoL5CaarnyZU9pEpSKgJriciJeXUvGh
+    BKeEYN1fbKTFbpo8E/sxFHhe20rHxBLdGqXcQukCgYEAt2EiPlUzx3mY3PTx7ckM
+    iIaX6iB9GVprVGiC6ZUF8ExZPwXEiS4If9nNxmzJSsutRjOliEElgvqVMofjlDzZ
+    DgXgczgkN0X10h/TWnMRVvae6IjqkgAakgFPGIf4jIBNSgqNoOOozf9E/nR1SOvd
+    3A6iZgGFsat4Bz0zz77g6eU=
+    -----END PRIVATE KEY-----
+---
+# LiteLLM proxy as an OpenAI-compatible mock. `mock_response` returns a canned
+# chat-completion JSON without ever contacting an upstream API, so no provider
+# keys, no quotas, no money spent. Bifrost's outbound HTTPS call to this mock
+# is the leg whose TLS we want decrypted.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: litellm-config
+data:
+  config.yaml: |
+    model_list:
+      - model_name: gpt-4o-mini
+        litellm_params:
+          model: openai/gpt-4o-mini
+          api_key: sk-fake
+          mock_response: "mocked reply from litellm"
+      - model_name: gpt-4o
+        litellm_params:
+          model: openai/gpt-4o
+          api_key: sk-fake
+          mock_response: "mocked reply from litellm"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: litellm
+  labels: { app: litellm }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: litellm }
+  template:
+    metadata:
+      labels: { app: litellm }
+    spec:
+      containers:
+      - name: litellm
+        # Pinned by digest: this is the litellm mock, not the thing under test,
+        # so tracking a mutable upstream tag buys nothing and costs a broken
+        # suite whenever upstream rebuilds. `main-latest` was rebuilt
+        # 2026-09-25 and stopped binding its TLS port, which failed this case
+        # for three consecutive release-verification runs. This digest is the
+        # main-stable build of 2026-09-23.
+        image: ghcr.io/berriai/litellm@sha256:87f34979b9f8cb274fac90ca8a4fdda07d8480de22755562a26adeb95ce20d02
+        args:
+          - "--config=/etc/litellm/config.yaml"
+          - "--port=4443"
+          - "--ssl_keyfile_path=/etc/litellm/tls/tls.key"
+          - "--ssl_certfile_path=/etc/litellm/tls/tls.crt"
+        ports:
+        - { name: https, containerPort: 4443 }
+        volumeMounts:
+        - { name: config, mountPath: /etc/litellm, readOnly: true }
+        - { name: tls, mountPath: /etc/litellm/tls, readOnly: true }
+        readinessProbe:
+          tcpSocket: { port: 4443 }
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: litellm-config
+      - name: tls
+        secret:
+          secretName: litellm-tls
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: litellm
+spec:
+  ports:
+  - { name: https, port: 4443, targetPort: 4443 }
+  selector:
+    app: litellm
+---
+# Bifrost gateway - the Go binary under test (go-crypto-tls strategy).
+# `kubeshark/bifrost:1.4.22-debug` is one of the entries registered with
+# `debug_image:` in registry-go-tls/registry.yaml - i.e. an actual debug build
+# with DWARF / gopclntab intact. Newer kubeshark/bifrost:*-debug tags (1.4.24)
+# are stripped despite the suffix and only registered under go-stripped strategy.
+#
+# Custom provider `litellm-mock` routes openai-shaped requests to the in-cluster
+# litellm svc over HTTPS; bifrost's crypto/tls write is what the tracer hooks.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: bifrost-config
+data:
+  config.json: |
+    {
+      "providers": {
+        "litellm-mock": {
+          "keys": [
+            {"value": "sk-fake", "models": ["gpt-4o-mini", "gpt-4o"], "weight": 1.0}
+          ],
+          "network_config": {
+            "base_url": "https://litellm:4443",
+            "insecure_skip_verify": true
+          },
+          "custom_provider_config": {
+            "base_provider_type": "openai",
+            "allowed_requests": {
+              "chat_completion": true,
+              "chat_completion_stream": false
+            }
+          }
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: bifrost
+  labels: { app: bifrost }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: bifrost }
+  template:
+    metadata:
+      labels: { app: bifrost }
+    spec:
+      containers:
+      - name: bifrost
+        image: docker.io/kubeshark/bifrost:1.4.22-debug@sha256:65485accebcd66297fdf8fb89acb54bf136cd82d5192868efcb763f86521a526
+        env:
+        - { name: BIFROST_HOST, value: "0.0.0.0" }
+        - { name: APP_DIR, value: "/app/data" }
+        ports:
+        - { name: http, containerPort: 8080 }
+        volumeMounts:
+        - { name: config, mountPath: /app/data/config.json, subPath: config.json, readOnly: true }
+        readinessProbe:
+          tcpSocket: { port: 8080 }
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: bifrost-config
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: bifrost
+spec:
+  ports:
+  - { name: http, port: 8080, targetPort: 8080 }
+  selector:
+    app: bifrost
+---
+# Traffic generator - loops POSTs to bifrost. The marker is in the user-message
+# content; bifrost forwards that body to litellm over HTTPS, so the marker
+# substring lands in the request body of the bifrost→litellm decrypted entry.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: bifrost-traffic-generator
+  labels: { app: bifrost-traffic-generator }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: bifrost-traffic-generator }
+  template:
+    metadata:
+      labels: { app: bifrost-traffic-generator }
+    spec:
+      containers:
+      - name: client
+        image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+        env:
+        - { name: MARKER_PREFIX, value: {{ .Values.tlsFixture.markerPrefix | quote }} }
+        - { name: EXPECTED_MARKERS, value: {{ .Values.tlsFixture.markerCount | quote }} }
+        command:
+        - sh
+        - -c
+        - |
+          set -eu
+          : "${MARKER_PREFIX:?missing}"
+          : "${EXPECTED_MARKERS:?missing}"
+          echo "Looping: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS}"
+          while true; do
+            for i in $(seq 1 "${EXPECTED_MARKERS}"); do
+              MARKER="${MARKER_PREFIX}_seq${i}"
+              curl -s --max-time 10 \
+                "http://bifrost:8080/v1/chat/completions" \
+                -H "Content-Type: application/json" \
+                -d "{\"model\":\"litellm-mock/gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"TLS decryption marker ${MARKER}\"}],\"max_tokens\":10}" \
+                -o /dev/null -w "${MARKER} HTTP %{http_code}\n" \
+                || echo "send failed"
+            done
+            sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+          done
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- end }}

@@ -73,6 +73,71 @@ Helm does not automatically apply the bundled preset: pass it with `-f` after ex
 or use the local copy from the matching revision. Leave `global.imageTag` unset for an OCI chart;
 its `appVersion` pins the matching published images. Delete the case namespace after the run.
 
+### Specialized TLS fixtures
+
+The chart also packages the original specialized TLS workloads used by perfshark. These are
+separate from the generic flows above: select exactly one `tlsFixture.name` with the functional
+preset, in a fresh namespace. Selection rejects enabled generic flows, generic TLS, language
+clients, ingress, external gateway traffic and `runner.http2`; it never adds the demo gateway.
+
+```bash
+helm install demo-apps deploy/chart -n tls-traefik --create-namespace \
+  -f deploy/chart/values-functional.yaml \
+  --set tlsFixture.name=go-stripped-traefik \
+  --set-string tlsFixture.markerPrefix=tls_demo \
+  --set tlsFixture.markerCount=3 --set tlsFixture.interval=2s
+```
+
+| Fixture | Original binary or image | Original batch interval |
+|---|---|---|
+| `go-stripped-traefik` | Traefik 3.6.13 | `2s` |
+| `go-crypto-tls-bifrost` | Bifrost 1.4.22-debug to pinned LiteLLM | `2s` |
+| `boringssl-envoy` | Envoy 1.31.10 | `2s` |
+| `openssl-mongodb` | MongoDB 8.0.26 | `3s` |
+| `openssl-mysql` | MySQL 8.0 | `3s` |
+| `openssl-postgresql` | PostgreSQL 16 | `3s` |
+| `openssl-ingress-nginx` | ingress-nginx 1.15.1 | `2s` |
+| `openssl-nginx-ingress-f5` | F5 NGINX Ingress Controller 5.4.2 | `2s` |
+| `boringssl-istio-gateway` | Envoy from Istio proxyv2 1.25.1 | `2s` |
+| `kfl-tls-capture` | Original mizutest OpenSSL Python client | Opaque image behavior |
+
+For the nine marker fixtures, supply a nonempty prefix consisting of ASCII letters, digits,
+underscores or hyphens (starting with a letter or digit), a positive integer `markerCount`, and a
+positive whole-second `interval`. Each batch repeats `<prefix>_seq1` through `<prefix>_seq<count>`;
+only the batch delay changes, not startup retries, request timeouts, clients or TLS hops.
+For `kfl-tls-capture`, set only the name and leave marker values and interval at their defaults.
+Its image, command and traffic behavior are not replaced by a marker generator.
+
+Perfshark prepares manifests before generating an attempt-specific prefix. It can render the
+exact literal strings `${MARKER_PREFIX}` and `${EXPECTED_MARKERS}` as `markerPrefix` and
+`markerCount`, respectively. They are accepted only as these exact sentinels. The runner binds
+only the corresponding environment entries on a fresh object copy before creating traffic;
+runtime shell and ConfigMap scripts are not interpolated by a second renderer. Ordinary Helm
+installs must use explicit values instead of these preparation sentinels.
+
+Each fixture preserves its original Service names, so do not share a namespace between
+fixtures or releases. The two ingress fixtures each create exactly one ClusterRole,
+ClusterRoleBinding and IngressClass named `tls-<namespace-hash>-nginx` or
+`tls-<namespace-hash>-f5`, where the hash is the first 16 hex characters of SHA256(namespace).
+Controllers watch only that namespace and only their selected class; classes are not defaults.
+Cluster permissions cover only nodes, namespaces and ingress classes. Namespaced permissions
+stay in the original Role. F5 retains its required `nginx.org/ingress-controller` identity and
+uses the unique class name, as described in its
+[controller flag documentation](https://docs.nginx.com/nginx-ingress-controller/configuration/global-configuration/command-line-arguments/).
+The original HTTPS Service hop, TLS hosts and F5 SNI/`--connect-to` pairing are preserved.
+
+With Helm, uninstall the release before deleting its namespace to remove cluster-scoped objects.
+Perfshark instead creates these objects with the live namespace UID as owner, rejects foreign
+collisions and deletes only the UIDs it created. ingress-nginx keeps its `/wait-shutdown` preStop
+and 300-second termination grace; cleanup must allow that grace plus a safety margin.
+
+Observe traffic with a stream subscription active before workloads start. TLS decryption
+assertions require the `tls` capture predicate together with the original hop filters and marker
+content; a plaintext backend HTTP request alone is not proof of TLS decryption. MongoDB 8 retains
+the functional suite's kernel compatibility skip rather than substituting the generic MongoDB 7
+server. Fixture images are pinned by digest and are independent of `global.imageTag` and the
+generic server mirror values; the retained version tags identify the original binaries.
+
 ## TLS
 
 The gateway, the inventory gRPC API and postgresql also serve TLS from a CA the chart generates
