@@ -73,20 +73,45 @@ Helm does not automatically apply the bundled preset: pass it with `-f` after ex
 or use the local copy from the matching revision. Leave `global.imageTag` unset for an OCI chart;
 its `appVersion` pins the matching published images. Delete the case namespace after the run.
 
-### Specialized TLS fixtures
+### Fixed functional fixtures
 
-The chart also packages the original specialized TLS workloads used by perfshark. These are
-separate from the generic flows above: select exactly one `tlsFixture.name` with the functional
+The chart packages the original plain and specialized TLS workloads used by perfshark. These are
+separate from the generic flows above: select exactly one `fixture.name` with the functional
 preset, in a fresh namespace. Selection rejects enabled generic flows, generic TLS, language
 clients, ingress, external gateway traffic and `runner.http2`; it never adds the demo gateway.
 
 ```bash
 helm install demo-apps deploy/chart -n tls-traefik --create-namespace \
   -f deploy/chart/values-functional.yaml \
-  --set tlsFixture.name=go-stripped-traefik \
-  --set-string tlsFixture.markerPrefix=tls_demo \
-  --set tlsFixture.markerCount=3 --set tlsFixture.interval=2s
+  --set fixture.name=go-stripped-traefik \
+  --set-string fixture.markerPrefix=tls_demo \
+  --set fixture.markerCount=3 --set fixture.interval=2s
 ```
+
+The six plain profiles preserve the original topology, clients and cadence:
+
+| Fixture | Workloads | Marker settings |
+|---|---|---|
+| `http` | curl to nginx every second | None |
+| `http-redis` | HTTP plus Redis and its original Go client | None |
+| `http-redis-kafka` | HTTP and Redis plus ZooKeeper, Kafka and its original Python client | None |
+| `http-markers` | nginx plus finite `seq1..count` cycles, sleeping one second per cycle | `markerPrefix`, positive `markerCount` |
+| `resilience-traffic` | nginx plus strictly increasing markers, sleeping 0.2 seconds per request | `markerPrefix` only |
+| `targeting-pair` | Separate `wire-targeted` and `wire-untargeted` HTTP pairs, every second | None |
+
+All plain profiles reject interval overrides. Non-marker profiles reject marker settings;
+`resilience-traffic` rejects a marker count and never emits `EXPECTED_MARKERS`. Its required
+same-node client/server affinity is preserved. HTTP, Redis and Kafka templates are shared by
+the three fixed composition profiles, not exposed as an arbitrary composition API.
+The legacy Kafka profile retains ZooKeeper's NodePort Service, the headless Kafka Service,
+original broker settings and opaque client commands; it does not use the generic Kafka flow.
+The six profiles use digest-pinned original private ECR images under
+`851725373216.dkr.ecr.us-east-1.amazonaws.com`. Nodes must have permission and credentials
+to pull these repositories; the chart does not provision registry credentials or substitute
+public images. The original `latest` tags on opaque clients remain descriptive, with the
+digest fixing the actual image.
+
+The ten TLS profiles retain their original settings:
 
 | Fixture | Original binary or image | Original batch interval |
 |---|---|---|
@@ -101,7 +126,7 @@ helm install demo-apps deploy/chart -n tls-traefik --create-namespace \
 | `boringssl-istio-gateway` | Envoy from Istio proxyv2 1.25.1 | `2s` |
 | `kfl-tls-capture` | Original mizutest OpenSSL Python client | Opaque image behavior |
 
-For the nine marker fixtures, supply a nonempty prefix consisting of ASCII letters, digits,
+For the nine TLS marker fixtures, supply a nonempty prefix consisting of ASCII letters, digits,
 underscores or hyphens (starting with a letter or digit), a positive integer `markerCount`, and a
 positive whole-second `interval`. Each batch repeats `<prefix>_seq1` through `<prefix>_seq<count>`;
 only the batch delay changes, not startup retries, request timeouts, clients or TLS hops.
@@ -114,6 +139,10 @@ exact literal strings `${MARKER_PREFIX}` and `${EXPECTED_MARKERS}` as `markerPre
 only the corresponding environment entries on a fresh object copy before creating traffic;
 runtime shell and ConfigMap scripts are not interpolated by a second renderer. Ordinary Helm
 installs must use explicit values instead of these preparation sentinels.
+
+Every fixture object, including cluster-scoped ingress resources, carries
+`demo-apps.kubeshark.co/fixture` equal to the selected profile. Resource names and selectors
+remain unchanged; the identity label does not change which pods a Service or workload selects.
 
 Each fixture preserves its original Service names, so do not share a namespace between
 fixtures or releases. The two ingress fixtures each create exactly one ClusterRole,

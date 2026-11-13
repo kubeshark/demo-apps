@@ -1,5 +1,5 @@
-{{- if eq .Values.tlsFixture.name "openssl-nginx-ingress-f5" }}
-{{- $clusterName := include "demo-apps.tlsFixtureClusterName" (dict "root" . "suffix" "f5") }}
+{{- if eq .Values.fixture.name "openssl-nginx-ingress-f5" }}
+{{- $clusterName := include "demo-apps.fixtureClusterName" (dict "root" . "suffix" "f5") }}
 # Rendered from `helm template nginx-stable/nginx-ingress --version 2.5.2
 #   --set controller.enableCustomResources=false
 #   --set controller.ingressClass.name=nginx-f5`
@@ -9,6 +9,8 @@
 apiVersion: v1
 kind: Secret
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: nginx-ingress-f5-tls
 type: kubernetes.io/tls
@@ -72,6 +74,7 @@ metadata:
   name: nginx-ingress
   namespace: {{ .Release.Namespace | quote }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -85,6 +88,7 @@ metadata:
   name: nginx-ingress
   namespace: {{ .Release.Namespace | quote }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -100,6 +104,7 @@ metadata:
   name: nginx-ingress-leader-election
   namespace: {{ .Release.Namespace | quote }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -112,6 +117,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ $clusterName }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -134,6 +140,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ $clusterName }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -154,6 +161,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: nginx-ingress
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -225,6 +233,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: nginx-ingress
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -247,6 +256,7 @@ metadata:
   name: nginx-ingress-controller
   namespace: {{ .Release.Namespace | quote }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -274,6 +284,7 @@ metadata:
   name: nginx-ingress-controller
   namespace: {{ .Release.Namespace | quote }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -392,6 +403,7 @@ kind: IngressClass
 metadata:
   name: {{ $clusterName }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -410,6 +422,7 @@ metadata:
   name: nginx-ingress-leader-election
   namespace: {{ .Release.Namespace | quote }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     helm.sh/chart: nginx-ingress-2.5.2
     app.kubernetes.io/name: nginx-ingress
     app.kubernetes.io/instance: nginx-ingress
@@ -421,7 +434,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: echo-server
-  labels: { app: echo-server }
+  labels: { app: echo-server, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -447,6 +460,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: echo-server
 spec:
@@ -459,6 +474,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: echo
 spec:
@@ -484,7 +501,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: nginx-ingress-f5-traffic-generator
-  labels: { app: nginx-ingress-f5-traffic-generator }
+  labels: { app: nginx-ingress-f5-traffic-generator, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -497,8 +514,8 @@ spec:
       - name: client
         image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
         env:
-        - { name: MARKER_PREFIX,    value: {{ .Values.tlsFixture.markerPrefix | quote }} }
-        - { name: EXPECTED_MARKERS, value: {{ .Values.tlsFixture.markerCount | quote }} }
+        - { name: MARKER_PREFIX,    value: {{ .Values.fixture.markerPrefix | quote }} }
+        - { name: EXPECTED_MARKERS, value: {{ .Values.fixture.markerCount | quote }} }
         command:
         - sh
         - -c
@@ -518,7 +535,7 @@ spec:
                 -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
                 || echo "send failed"
             done
-            sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+            sleep {{ include "demo-apps.fixtureSeconds" . }}
           done
       nodeSelector:
         kubernetes.io/os: linux

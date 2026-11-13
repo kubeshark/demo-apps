@@ -1,10 +1,11 @@
-{{- if eq .Values.tlsFixture.name "kfl-tls-capture" }}
+{{- if eq .Values.fixture.name "kfl-tls-capture" }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
     app: mizutest-outbound-tls-openssl
     name: mizutest-outbound-tls-openssl
     version: v0.1.0

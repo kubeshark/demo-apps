@@ -1,4 +1,4 @@
-{{- if eq .Values.tlsFixture.name "go-crypto-tls-bifrost" }}
+{{- if eq .Values.fixture.name "go-crypto-tls-bifrost" }}
 ---
 # Self-signed TLS material for the in-cluster litellm mock. Same cert as the
 # other tls_decryption manifests (test-only, repo-committed). The SAN doesn't
@@ -7,6 +7,8 @@
 apiVersion: v1
 kind: Secret
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: litellm-tls
 type: kubernetes.io/tls
@@ -70,6 +72,8 @@ stringData:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: litellm-config
 data:
@@ -91,7 +95,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: litellm
-  labels: { app: litellm }
+  labels: { app: litellm, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -136,6 +140,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: litellm
 spec:
@@ -155,6 +161,8 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: bifrost-config
 data:
@@ -185,7 +193,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: bifrost
-  labels: { app: bifrost }
+  labels: { app: bifrost, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -218,6 +226,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: bifrost
 spec:
@@ -234,7 +244,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: bifrost-traffic-generator
-  labels: { app: bifrost-traffic-generator }
+  labels: { app: bifrost-traffic-generator, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -247,8 +257,8 @@ spec:
       - name: client
         image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
         env:
-        - { name: MARKER_PREFIX, value: {{ .Values.tlsFixture.markerPrefix | quote }} }
-        - { name: EXPECTED_MARKERS, value: {{ .Values.tlsFixture.markerCount | quote }} }
+        - { name: MARKER_PREFIX, value: {{ .Values.fixture.markerPrefix | quote }} }
+        - { name: EXPECTED_MARKERS, value: {{ .Values.fixture.markerCount | quote }} }
         command:
         - sh
         - -c
@@ -267,7 +277,7 @@ spec:
                 -o /dev/null -w "${MARKER} HTTP %{http_code}\n" \
                 || echo "send failed"
             done
-            sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+            sleep {{ include "demo-apps.fixtureSeconds" . }}
           done
       nodeSelector:
         kubernetes.io/os: linux

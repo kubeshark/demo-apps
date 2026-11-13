@@ -1,12 +1,15 @@
-{{- if eq .Values.tlsFixture.name "go-stripped-traefik" }}
+{{- if eq .Values.fixture.name "boringssl-envoy" }}
 ---
-# Self-signed TLS material for the traefik front-end. Same key+cert as the
-# other tls_decryption manifests (test-only, repo-committed).
+# Self-signed TLS material for envoy's downstream TLS listener. Same cert as
+# the other tls_decryption manifests (test-only, repo-committed). SAN doesn't
+# need to cover the envoy hostname - curl uses -k.
 apiVersion: v1
 kind: Secret
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
-  name: traefik-tls
+  name: envoy-tls
 type: kubernetes.io/tls
 stringData:
   tls.crt: |
@@ -64,46 +67,64 @@ stringData:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
-  name: traefik-config
+  name: envoy-config
 data:
-  traefik.yaml: |
-    ping:
-      entryPoint: admin
-    entryPoints:
-      https:
-        address: ":8443"
-      admin:
-        address: ":9000"
-    providers:
-      file:
-        filename: /etc/traefik/dynamic.yaml
-  dynamic.yaml: |
-    tls:
-      certificates:
-        - certFile: /etc/traefik/certs/tls.crt
-          keyFile: /etc/traefik/certs/tls.key
-    http:
-      routers:
-        echo:
-          rule: "PathPrefix(`/`)"
-          entryPoints:
-            - https
-          tls: {}
-          service: echo-backend
-      services:
-        echo-backend:
-          loadBalancer:
-            servers:
-              - url: "http://echo-server:8080"
+  envoy.yaml: |
+    static_resources:
+      listeners:
+        - name: https_listener
+          address:
+            socket_address: { address: 0.0.0.0, port_value: 10443 }
+          filter_chains:
+            - filters:
+                - name: envoy.filters.network.http_connection_manager
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                    stat_prefix: ingress_https
+                    route_config:
+                      name: local_route
+                      virtual_hosts:
+                        - name: backend
+                          domains: ["*"]
+                          routes:
+                            - match: { prefix: "/" }
+                              route: { cluster: echo_backend }
+                    http_filters:
+                      - name: envoy.filters.http.router
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+              transport_socket:
+                name: envoy.transport_sockets.tls
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+                  common_tls_context:
+                    tls_certificates:
+                      - certificate_chain: { filename: /etc/envoy/certs/tls.crt }
+                        private_key:       { filename: /etc/envoy/certs/tls.key }
+      clusters:
+        - name: echo_backend
+          type: STRICT_DNS
+          load_assignment:
+            cluster_name: echo_backend
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address: { address: echo-server, port_value: 8080 }
+    admin:
+      address:
+        socket_address: { address: 0.0.0.0, port_value: 9901 }
 ---
-# Backend the traefik router proxies decrypted requests to.
+# Backend the envoy listener proxies decrypted requests to. Plaintext HTTP.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: echo-server
-  labels: { app: echo-server }
+  labels: { app: echo-server, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -131,6 +152,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: echo-server
 spec:
@@ -140,86 +163,83 @@ spec:
   selector:
     app: echo-server
 ---
-# Traefik - the stripped-Go binary under test. v3.6.13 is one of the
-# entries in registry-go-tls's offsets-bundle.json (go-stripped strategy).
+# Envoy - the boringssl-static binary under test. v1.31.10 is what
+# registry-go-tls's own e2e harness uses and is in offsets-bundle.json.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
-  name: traefik
-  labels: { app: traefik }
+  name: envoy
+  labels: { app: envoy, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: traefik }
+    matchLabels: { app: envoy }
   template:
     metadata:
-      labels: { app: traefik }
+      labels: { app: envoy }
     spec:
       containers:
-      - name: traefik
-        image: docker.io/traefik:v3.6.13@sha256:34d5089d0b414945342848518b383f11f5b3a645504ed87b77ffeb9d683d0e48
-        args:
-          - "--configFile=/etc/traefik/traefik.yaml"
+      - name: envoy
+        image: docker.io/envoyproxy/envoy:v1.31.10@sha256:caa5b411be1633b90023592a34a7e010c933d6e60206c758f631485e53006865
+        args: ["-c", "/etc/envoy/envoy.yaml"]
         ports:
-        - { name: https, containerPort: 8443 }
-        - { name: admin, containerPort: 9000 }
+        - { name: https, containerPort: 10443 }
+        - { name: admin, containerPort: 9901 }
         volumeMounts:
-        - { name: config, mountPath: /etc/traefik, readOnly: true }
-        - { name: certs, mountPath: /etc/traefik/certs, readOnly: true }
+        - { name: config, mountPath: /etc/envoy,       readOnly: true }
+        - { name: certs,  mountPath: /etc/envoy/certs, readOnly: true }
         readinessProbe:
-          httpGet: { path: /ping, port: 9000 }
+          httpGet: { path: /ready, port: 9901 }
           initialDelaySeconds: 3
           periodSeconds: 5
       volumes:
       - name: config
         configMap:
-          name: traefik-config
+          name: envoy-config
       - name: certs
         secret:
-          secretName: traefik-tls
+          secretName: envoy-tls
       nodeSelector:
         kubernetes.io/os: linux
 ---
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
-  name: traefik
+  name: envoy
 spec:
   ports:
-  - { name: https, port: 443, targetPort: 8443 }
+  - { name: https, port: 443, targetPort: 10443 }
   selector:
-    app: traefik
+    app: envoy
 ---
-# Traffic generator - keeps sending HTTPS requests on the configured batch cadence so
-# the verifier always has fresh entries to scan, regardless of when it connects.
-# Client = curl (OpenSSL). Doesn't matter what TLS lib the client uses; the
-# tracer's eBPF hooks live on traefik's Go crypto/tls side, where decryption
-# happens. The marker is embedded in the URL path so it surfaces in the HTTP
-# request_url of every dissected entry.
+# Traffic generator - keeps sending HTTPS requests on the configured batch cadence.
+# Marker is embedded in the URL path so it surfaces in `request_url` of the
+# decrypted HTTP entry. Client = curl (OpenSSL) - doesn't matter; tracer
+# hooks live on envoy's boringssl side where decryption happens.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
-  name: traefik-traffic-generator
-  labels: { app: traefik-traffic-generator }
+  name: envoy-traffic-generator
+  labels: { app: envoy-traffic-generator, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: traefik-traffic-generator }
+    matchLabels: { app: envoy-traffic-generator }
   template:
     metadata:
-      labels: { app: traefik-traffic-generator }
+      labels: { app: envoy-traffic-generator }
     spec:
       containers:
       - name: client
         image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
         env:
-        - name: MARKER_PREFIX
-          value: {{ .Values.tlsFixture.markerPrefix | quote }}
-        - name: EXPECTED_MARKERS
-          value: {{ .Values.tlsFixture.markerCount | quote }}
+        - { name: MARKER_PREFIX,    value: {{ .Values.fixture.markerPrefix | quote }} }
+        - { name: EXPECTED_MARKERS, value: {{ .Values.fixture.markerCount | quote }} }
         command:
         - sh
         - -c
@@ -231,11 +251,11 @@ spec:
           while true; do
             for i in $(seq 1 "${EXPECTED_MARKERS}"); do
               curl -sk --max-time 5 \
-                "https://traefik/test/${MARKER_PREFIX}_seq${i}" \
+                "https://envoy/test/${MARKER_PREFIX}_seq${i}" \
                 -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
                 || echo "send failed"
             done
-            sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+            sleep {{ include "demo-apps.fixtureSeconds" . }}
           done
       nodeSelector:
         kubernetes.io/os: linux

@@ -1,0 +1,92 @@
+{{- if has .Values.fixture.name (list "http-markers") }}
+---
+# Plaintext URL markers must survive verbatim in exported PCAP bytes.
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: http-markers-server
+spec:
+  selector:
+    app: http-markers-server
+  ports:
+  - port: 80
+    # nginx-unprivileged listens on 8080, not 80.
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: http-markers-server
+  labels: { app: http-markers-server, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: http-markers-server }
+  template:
+    metadata:
+      labels: { app: http-markers-server }
+    spec:
+      containers:
+      - name: server
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 2
+          failureThreshold: 60
+        image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/nginxinc/nginx-unprivileged:1.27@sha256:ad235e7dc37fe96da6374367277329936cb928b2e5c1d39f81d4331e49b5266e
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+# Emits every marker once per cycle, forever, so a snapshot over any window
+# long enough to cover a full cycle sees the complete set.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: http-markers-generator
+  labels: { app: http-markers-generator, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: http-markers-generator }
+  template:
+    metadata:
+      labels: { app: http-markers-generator }
+    spec:
+      containers:
+      - name: client
+        image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/alpine/curl:8.9.1@sha256:e13f4217ebcbb8dbbfad0ae422bca76a3b037b0030cb7123138b4cb1ca49fbb5
+        imagePullPolicy: Always
+        env:
+        - name: MARKER_PREFIX
+          value: {{ .Values.fixture.markerPrefix | quote }}
+        - name: EXPECTED_MARKERS
+          value: {{ .Values.fixture.markerCount | quote }}
+        command:
+        - sh
+        - -c
+        - |
+          set -eu
+          : "${MARKER_PREFIX:?missing}"
+          : "${EXPECTED_MARKERS:?missing}"
+          echo "Looping: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS}"
+          while true; do
+            for i in $(seq 1 "${EXPECTED_MARKERS}"); do
+              curl -sS --max-time 5 \
+                "http://http-markers-server/test/${MARKER_PREFIX}_seq${i}" \
+                -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
+                || echo "send failed"
+            done
+            sleep 1
+          done
+      nodeSelector:
+        kubernetes.io/os: linux
+
+{{- end }}

@@ -1,0 +1,171 @@
+{{- if has .Values.fixture.name (list "http-redis-kafka") }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+    app: zookeeper
+  name: zookeeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - env:
+        - name: ZOO_MY_ID
+          value: '1'
+        image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/library/zookeeper:3.4.13@sha256:1ce4e3008b17a2abfd3cafc59be0a09d5fdc040e3cd356653aa6cc57d4cf5ac8
+        imagePullPolicy: IfNotPresent
+        name: zookeeper
+        readinessProbe:
+          tcpSocket:
+            port: 2181
+          periodSeconds: 2
+          failureThreshold: 60
+        ports:
+        - containerPort: 2181
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+    app: zookeeper-service
+  name: zookeeper-service
+spec:
+  ports:
+  - name: zookeeper-port
+    port: 2181
+    targetPort: 2181
+  selector:
+    app: zookeeper
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: kafka
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  serviceName: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - env:
+        - name: KAFKA_ADVERTISED_PORT
+          value: '9092'
+        - name: BROKER_ID_COMMAND
+          value: hostname | cut -d'-' -f2
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: zookeeper-service:2181
+        - name: KAFKA_LISTENERS
+          value: PLAINTEXT://:9092
+        - name: KAFKA_JMX_OPTS
+          value: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false
+            -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false
+            -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999
+            -Djava.rmi.server.hostname=127.0.0.1
+        - name: JMX_PORT
+          value: '9999'
+        image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/wurstmeister/kafka:2.11-2.0.0@sha256:eb3f63d810dd50144d0d4a647ae7eb8976c088d47d6ea23e42aa680b02a7c45b
+        imagePullPolicy: IfNotPresent
+        name: kafka
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          periodSeconds: 2
+          failureThreshold: 60
+        ports:
+        - containerPort: 9092
+          name: plaintext
+        - containerPort: 9999
+          name: jmx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+    app: kafka
+  name: kafka
+spec:
+  clusterIP: None
+  ports:
+  - name: plaintext
+    port: 9092
+  - name: jmx
+    port: 9999
+  selector:
+    app: kafka
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+    app: mizutest-kafka-py
+    name: mizutest-kafka-py
+    version: v0.1.0
+  name: mizutest-kafka-py
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: mizutest-kafka-py
+  template:
+    metadata:
+      labels:
+        app: mizutest-kafka-py
+        name: mizutest-kafka-py
+        version: v0.1.0
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - ./run.sh
+        image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/mertyildiran/mizutest-kafka-py:latest@sha256:52171a23989fab34db3f7865affec4cbf9c7d53b205aa06e089b7147469fcbd8
+        imagePullPolicy: Always
+        name: mizutest-kafka-py
+        ports:
+        - containerPort: 9092
+        resources:
+          limits:
+            cpu: 75m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        securityContext:
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- end }}

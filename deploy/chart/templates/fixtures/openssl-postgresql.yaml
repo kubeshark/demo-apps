@@ -1,10 +1,12 @@
-{{- if eq .Values.tlsFixture.name "openssl-mysql" }}
+{{- if eq .Values.fixture.name "openssl-postgresql" }}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
-  name: mysql-tls
+  name: postgres-tls
 type: Opaque
 stringData:
   server.crt: |
@@ -59,91 +61,148 @@ stringData:
     3A6iZgGFsat4Bz0zz77g6eU=
     -----END PRIVATE KEY-----
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  namespace: {{ .Release.Namespace | quote }}
+  name: postgres-tls-config
+data:
+  pg_hba.conf: |
+    # Force TLS for all remote connections. Local socket is left as trust so
+    # health probes keep working without sticking creds in the manifest.
+    local all all                trust
+    host  all all 127.0.0.1/32   trust
+    hostssl all all 0.0.0.0/0    md5
+    hostssl all all ::/0         md5
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
-  name: mysql
-  labels: { app: mysql }
+  name: postgres
+  labels: { app: postgres, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: mysql }
+    matchLabels: { app: postgres }
   template:
     metadata:
-      labels: { app: mysql }
+      labels: { app: postgres }
     spec:
-      # fsGroup=999 = mysql group; lets the mysql user read the mounted TLS key.
+      # fsGroup=999 = postgres group; lets the postgres user read the mounted TLS key
+      # (postgres requires ssl_key_file to be mode 0600 or 0640 with group ownership).
       securityContext:
         fsGroup: 999
-      containers:
-      - name: mysql
-        image: docker.io/mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
-        args:
-          - "--ssl-cert=/etc/mysql-tls/server.crt"
-          - "--ssl-key=/etc/mysql-tls/server.key"
-          - "--require-secure-transport=ON"
-        env:
-        - name: MYSQL_ROOT_PASSWORD
-          value: "test"
-        - name: MYSQL_DATABASE
-          value: "testdb"
-        ports:
-        - containerPort: 3306
+      # Init container copies the TLS material to a postgres-owned emptyDir with 0600
+      # perms - postgres refuses to start with any group/world permissions on ssl_key_file.
+      initContainers:
+      - name: prep-tls
+        image: docker.io/postgres:16@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cp /src/server.crt /dst/server.crt
+          cp /src/server.key /dst/server.key
+          chmod 0600 /dst/server.crt /dst/server.key
+          chown 999:999 /dst/server.crt /dst/server.key
         volumeMounts:
-        - name: tls
-          mountPath: /etc/mysql-tls
+        - name: tls-src
+          mountPath: /src
           readOnly: true
+        - name: tls-runtime
+          mountPath: /dst
+      containers:
+      - name: postgres
+        image: docker.io/postgres:16@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
+        args:
+          - "-c"
+          - "ssl=on"
+          - "-c"
+          - "ssl_cert_file=/etc/postgres-tls/server.crt"
+          - "-c"
+          - "ssl_key_file=/etc/postgres-tls/server.key"
+          - "-c"
+          - "hba_file=/etc/postgres-config/pg_hba.conf"
+        env:
+        - name: POSTGRES_PASSWORD
+          value: "test"
+        - name: POSTGRES_DB
+          value: "testdb"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: tls-runtime
+          mountPath: /etc/postgres-tls
+          readOnly: true
+        - name: pg-config
+          mountPath: /etc/postgres-config
+          readOnly: true
+        - name: data
+          mountPath: /var/lib/postgresql/data
         readinessProbe:
           exec:
-            command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-ptest"]
+            command: ["pg_isready", "-U", "postgres"]
           initialDelaySeconds: 10
           periodSeconds: 5
       volumes:
-      - name: tls
+      - name: tls-src
         secret:
-          secretName: mysql-tls
-          defaultMode: 0640
+          secretName: postgres-tls
+      - name: tls-runtime
+        emptyDir: {}
+      - name: pg-config
+        configMap:
+          name: postgres-tls-config
+      - name: data
+        emptyDir: {}
       nodeSelector:
         kubernetes.io/os: linux
 ---
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
-  name: mysql
+  name: postgres
 spec:
   ports:
-  - port: 3306
-    targetPort: 3306
+  - port: 5432
+    targetPort: 5432
   selector:
-    app: mysql
+    app: postgres
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
-  name: mysql-traffic-script
+  name: postgres-traffic-script
 data:
   send.sh: |
     #!/bin/sh
     set -e
     : "${MARKER_PREFIX:?missing}"
     : "${EXPECTED_MARKERS:?missing}"
+    export PGPASSWORD="test"
+    export PGSSLMODE="require"
 
-    # Wait until mysqld accepts TLS connections.
-    until mysql --host=mysql --user=root --password=test --ssl-mode=REQUIRED \
-        -e "SELECT 1" testdb >/dev/null 2>&1; do
-      echo "waiting for mysql tls..."
+    until psql -h postgres -U postgres -d testdb -c "SELECT 1" >/dev/null 2>&1; do
+      echo "waiting for postgres tls..."
       sleep 2
     done
 
-    mysql --host=mysql --user=root --password=test --ssl-mode=REQUIRED testdb \
-      -e "CREATE TABLE IF NOT EXISTS tls_test (id INT AUTO_INCREMENT PRIMARY KEY, marker VARCHAR(255))"
+    psql -h postgres -U postgres -d testdb -c \
+      "CREATE TABLE IF NOT EXISTS tls_test (id SERIAL PRIMARY KEY, marker TEXT)"
 
-    # Compose the per-iteration query containing every expected marker. The verifier
-    # only needs each marker to appear inside one captured query body - looping
-    # makes that resilient to the verifier connecting after the first iteration.
+    # Compose a per-iteration query containing every expected marker. Loop forever
+    # so the verifier doesn't race with a single one-shot insertion.
     Q=""
     i=1
     while [ "$i" -le "$EXPECTED_MARKERS" ]; do
@@ -154,41 +213,40 @@ data:
 
     echo "Sending markers: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS} (loop)"
     while true; do
-      mysql --host=mysql --user=root --password=test --ssl-mode=REQUIRED testdb \
-        -e "$Q" || echo "send failed, retrying"
-      sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+      psql -h postgres -U postgres -d testdb -c "$Q" || echo "send failed, retrying"
+      sleep {{ include "demo-apps.fixtureSeconds" . }}
     done
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
-  name: mysql-traffic-generator
-  labels: { app: mysql-traffic-generator }
+  name: postgres-traffic-generator
+  labels: { app: postgres-traffic-generator, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: mysql-traffic-generator }
+    matchLabels: { app: postgres-traffic-generator }
   template:
     metadata:
-      labels: { app: mysql-traffic-generator }
+      labels: { app: postgres-traffic-generator }
     spec:
       containers:
       - name: client
-        image: docker.io/mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        image: docker.io/postgres:16@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
         command: ["/bin/sh", "/scripts/send.sh"]
         env:
         - name: MARKER_PREFIX
-          value: {{ .Values.tlsFixture.markerPrefix | quote }}
+          value: {{ .Values.fixture.markerPrefix | quote }}
         - name: EXPECTED_MARKERS
-          value: {{ .Values.tlsFixture.markerCount | quote }}
+          value: {{ .Values.fixture.markerCount | quote }}
         volumeMounts:
         - name: scripts
           mountPath: /scripts
       volumes:
       - name: scripts
         configMap:
-          name: mysql-traffic-script
+          name: postgres-traffic-script
           defaultMode: 0755
       nodeSelector:
         kubernetes.io/os: linux
