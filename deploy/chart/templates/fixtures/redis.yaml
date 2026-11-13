@@ -1,0 +1,111 @@
+{{- if has .Values.fixture.name (list "http-redis" "http-redis-kafka") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+    app: session-db
+    name: session-db
+    version: v0.1.0
+  name: session-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: session-db
+      name: session-db
+      version: v0.1.0
+  template:
+    metadata:
+      annotations:
+        prometheus.io.scrape: 'false'
+      labels:
+        app: session-db
+        name: session-db
+        version: v0.1.0
+    spec:
+      containers:
+      - image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/redis:alpine@sha256:a18f1e96510073ded32aaecc8da3070de7e6211749f554c859563508ea704953
+        name: session-db
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          periodSeconds: 2
+          failureThreshold: 60
+        ports:
+        - containerPort: 6379
+          name: redis
+        securityContext:
+          capabilities:
+            add:
+            - CHOWN
+            - SETGID
+            - SETUID
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+    app: session-db
+    name: session-db
+    version: v0.1.0
+  name: session-db
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: session-db
+    name: session-db
+    version: v0.1.0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+    app: mizutest-redis-go
+    name: mizutest-redis-go
+    version: v0.1.0
+  name: mizutest-redis-go
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: mizutest-redis-go
+  template:
+    metadata:
+      labels:
+        app: mizutest-redis-go
+        name: mizutest-redis-go
+        version: v0.1.0
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - ./run.sh
+        image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/mertyildiran/mizutest-redis-go:latest@sha256:ca9311b77398530fdc2e04894eeea585e25fcf44b388669225412776eb863455
+        imagePullPolicy: Always
+        name: mizutest-redis-go
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            cpu: 75m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- end }}

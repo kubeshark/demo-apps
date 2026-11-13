@@ -1,0 +1,159 @@
+{{- if has .Values.fixture.name (list "targeting-pair") }}
+# Two identical HTTP workloads in one namespace, named so that a POD_REGEX can
+# select one and exclude the other. Used by the capture_source
+# targeting_precision case: the pair has to live in the same namespace, because
+# the namespace is what the verification stream is already scoped to, so the
+# pod name is the only axis left to target on.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: wire-targeted-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wire-targeted-client
+  template:
+    metadata:
+      labels:
+        app: wire-targeted-client
+    spec:
+      containers:
+      - image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/alpine/curl:8.9.1@sha256:e13f4217ebcbb8dbbfad0ae422bca76a3b037b0030cb7123138b4cb1ca49fbb5
+        imagePullPolicy: Always
+        name: curl
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            curl -sS -o /dev/null http://wire-targeted-server/ 2>&1;
+            sleep 1;
+          done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: wire-targeted-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wire-targeted-server
+  template:
+    metadata:
+      labels:
+        app: wire-targeted-server
+    spec:
+      containers:
+      - image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/nginxinc/nginx-unprivileged:1.27@sha256:ad235e7dc37fe96da6374367277329936cb928b2e5c1d39f81d4331e49b5266e
+        imagePullPolicy: Always
+        name: nginx
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 2
+          failureThreshold: 60
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: wire-targeted-server
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: wire-targeted-server
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: wire-untargeted-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wire-untargeted-client
+  template:
+    metadata:
+      labels:
+        app: wire-untargeted-client
+    spec:
+      containers:
+      - image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/alpine/curl:8.9.1@sha256:e13f4217ebcbb8dbbfad0ae422bca76a3b037b0030cb7123138b4cb1ca49fbb5
+        imagePullPolicy: Always
+        name: curl
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            curl -sS -o /dev/null http://wire-untargeted-server/ 2>&1;
+            sleep 1;
+          done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: wire-untargeted-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wire-untargeted-server
+  template:
+    metadata:
+      labels:
+        app: wire-untargeted-server
+    spec:
+      containers:
+      - image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/nginxinc/nginx-unprivileged:1.27@sha256:ad235e7dc37fe96da6374367277329936cb928b2e5c1d39f81d4331e49b5266e
+        imagePullPolicy: Always
+        name: nginx
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 2
+          failureThreshold: 60
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+  name: wire-untargeted-server
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: wire-untargeted-server
+  type: ClusterIP
+
+{{- end }}

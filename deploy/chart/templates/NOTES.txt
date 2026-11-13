@@ -1,12 +1,19 @@
-{{- if .Values.tlsFixture.name }}
-TLS fixture: {{ .Values.tlsFixture.name }}
+{{- if .Values.fixture.name }}
+Fixture: {{ .Values.fixture.name }}
 Namespace: {{ .Release.Namespace }}
-{{- if ne .Values.tlsFixture.name "kfl-tls-capture" }}
-Markers: {{ .Values.tlsFixture.markerPrefix }}_seq1 through _seq{{ .Values.tlsFixture.markerCount }}
-Batch interval: {{ .Values.tlsFixture.interval }}
+{{- if .Values.fixture.markerPrefix }}
+Marker prefix: {{ .Values.fixture.markerPrefix }}
+{{- if .Values.fixture.markerCount }}
+Markers: {{ .Values.fixture.markerPrefix }}_seq1 through _seq{{ .Values.fixture.markerCount }}
+{{- else }}
+Markers: strictly increasing sequence numbers
+{{- end }}
+{{- end }}
+{{- if .Values.fixture.interval }}
+Batch interval: {{ .Values.fixture.interval }}
 {{- end }}
 
-This fixture has no demo gateway or UI. Subscribe to TLS capture before starting traffic.
+This fixture has no demo gateway or UI. Subscribe to capture before starting traffic.
 Uninstall this release before deleting its namespace so any ingress cluster resources are removed.
 {{- else }}
 Flows enabled:

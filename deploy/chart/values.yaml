@@ -12,15 +12,15 @@ global:
   imageTag: ""
   imagePullPolicy: IfNotPresent
 
-# Specialized TLS binaries and their original protocol clients. Opt in with the bundled
+# Fixed functional workloads and their original protocol clients. Opt in with the bundled
 # values-functional.yaml preset; fixture selection rejects generic workload settings.
-tlsFixture:
+fixture:
   name: ""
   markerPrefix: ""
   # Positive integer, or the exact perfshark preparation sentinel "${EXPECTED_MARKERS}".
   markerCount: 0
-  # Required for marker fixtures: positive whole seconds (for example 2s or 3s).
-  # The kfl-tls-capture fixture leaves all marker and interval values empty/zero.
+  # Required only for the nine TLS marker fixtures: positive whole seconds.
+  # Plain fixtures and kfl-tls-capture retain their original cadence; leave interval empty.
   interval: ""
 
 # A flow is one narratable path. Enabling it renders the services and servers it needs.

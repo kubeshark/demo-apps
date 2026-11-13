@@ -1,9 +1,11 @@
-{{- if eq .Values.tlsFixture.name "boringssl-istio-gateway" }}
+{{- if eq .Values.fixture.name "boringssl-istio-gateway" }}
 ---
 # Self-signed TLS material. Reused across all tls_decryption manifests.
 apiVersion: v1
 kind: Secret
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: istio-gateway-tls
 type: kubernetes.io/tls
@@ -67,6 +69,8 @@ stringData:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: istio-gateway-config
 data:
@@ -121,7 +125,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: echo-server
-  labels: { app: echo-server }
+  labels: { app: echo-server, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -147,6 +151,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: echo-server
 spec:
@@ -166,7 +172,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: istio-gateway
-  labels: { app: istio-gateway }
+  labels: { app: istio-gateway, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -203,6 +209,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: istio-gateway
 spec:
@@ -216,7 +224,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: istio-gateway-traffic-generator
-  labels: { app: istio-gateway-traffic-generator }
+  labels: { app: istio-gateway-traffic-generator, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -229,8 +237,8 @@ spec:
       - name: client
         image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
         env:
-        - { name: MARKER_PREFIX,    value: {{ .Values.tlsFixture.markerPrefix | quote }} }
-        - { name: EXPECTED_MARKERS, value: {{ .Values.tlsFixture.markerCount | quote }} }
+        - { name: MARKER_PREFIX,    value: {{ .Values.fixture.markerPrefix | quote }} }
+        - { name: EXPECTED_MARKERS, value: {{ .Values.fixture.markerCount | quote }} }
         command:
         - sh
         - -c
@@ -245,7 +253,7 @@ spec:
                 -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
                 || echo "send failed"
             done
-            sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+            sleep {{ include "demo-apps.fixtureSeconds" . }}
           done
       nodeSelector:
         kubernetes.io/os: linux

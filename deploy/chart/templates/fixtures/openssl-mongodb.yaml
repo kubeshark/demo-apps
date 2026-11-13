@@ -1,8 +1,10 @@
-{{- if eq .Values.tlsFixture.name "openssl-mongodb" }}
+{{- if eq .Values.fixture.name "openssl-mongodb" }}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: mongo-tls
 type: Opaque
@@ -66,7 +68,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: mongo
-  labels: { app: mongo }
+  labels: { app: mongo, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -107,6 +109,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: mongo
 spec:
@@ -119,6 +123,8 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
   namespace: {{ .Release.Namespace | quote }}
   name: mongo-traffic-script
 data:
@@ -146,7 +152,7 @@ data:
         "mongodb://mongo:27017/testdb" \
         --quiet \
         --eval "$JS" || echo "send failed, retrying"
-      sleep {{ include "demo-apps.tlsFixtureSeconds" . }}
+      sleep {{ include "demo-apps.fixtureSeconds" . }}
     done
 ---
 apiVersion: apps/v1
@@ -154,7 +160,7 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace | quote }}
   name: mongo-traffic-generator
-  labels: { app: mongo-traffic-generator }
+  labels: { app: mongo-traffic-generator, demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }} }
 spec:
   replicas: 1
   selector:
@@ -169,9 +175,9 @@ spec:
         command: ["/bin/sh", "/scripts/send.sh"]
         env:
         - name: MARKER_PREFIX
-          value: {{ .Values.tlsFixture.markerPrefix | quote }}
+          value: {{ .Values.fixture.markerPrefix | quote }}
         - name: EXPECTED_MARKERS
-          value: {{ .Values.tlsFixture.markerCount | quote }}
+          value: {{ .Values.fixture.markerCount | quote }}
         volumeMounts:
         - name: scripts
           mountPath: /scripts

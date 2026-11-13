@@ -1,5 +1,5 @@
-# Reuse the real demo flows in disposable functional-test namespaces.
-# No resources are rendered until the caller enables at least one flow.
+# Reuse demo flows or one fixed fixture in disposable functional-test namespaces.
+# No resources are rendered until the caller enables a flow or selects fixture.name.
 flows:
   catalog:
     enabled: false
