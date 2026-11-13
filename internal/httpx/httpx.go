@@ -61,7 +61,10 @@ type TLSListener struct {
 
 // ServeTLS is Serve plus an optional TLS listener sharing the handler.
 func ServeTLS(addr string, tl TLSListener, h http.Handler) error {
-	servers := []*http.Server{{Addr: addr, Handler: Logging(h), ReadHeaderTimeout: 10 * time.Second}}
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+	servers := []*http.Server{{Addr: addr, Handler: Logging(h), Protocols: protocols, ReadHeaderTimeout: 10 * time.Second}}
 	if tl.Addr != "" {
 		servers = append(servers, &http.Server{Addr: tl.Addr, Handler: Logging(h), ReadHeaderTimeout: 10 * time.Second})
 	}

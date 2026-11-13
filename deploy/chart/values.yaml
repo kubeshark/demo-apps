@@ -61,6 +61,8 @@ flows:
 # Drives every enabled flow on its interval through the gateway, the same way a UI click does.
 runner:
   enabled: true
+  # Cleartext HTTP/2 prior knowledge for runner -> gateway only; externalURL is unchanged.
+  http2: false
   errorEvery: 10
   slowEvery: 20
   resources:

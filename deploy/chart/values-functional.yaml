@@ -1,0 +1,53 @@
+# Reuse the real demo flows in disposable functional-test namespaces.
+# No resources are rendered until the caller enables at least one flow.
+flows:
+  catalog:
+    enabled: false
+    interval: 1s
+  inventory:
+    enabled: false
+    interval: 1s
+  orders:
+    enabled: false
+    interval: 1s
+  graphql:
+    enabled: false
+    interval: 1s
+  websocket:
+    enabled: false
+    interval: 1s
+  identity:
+    enabled: false
+    interval: 1s
+  telco:
+    enabled: false
+    interval: 1s
+  netprobe:
+    enabled: false
+    interval: 1s
+    egressURLs: []
+  ledger:
+    enabled: false
+    interval: 1s
+
+runner:
+  enabled: true
+  http2: false
+  errorEvery: 0
+  slowEvery: 0
+
+gateway:
+  externalURL: ""
+  ingress:
+    enabled: false
+
+tls:
+  enabled: false
+
+clients:
+  java:
+    enabled: false
+  python:
+    enabled: false
+  node:
+    enabled: false

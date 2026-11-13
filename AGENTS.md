@@ -85,8 +85,10 @@ master), terraform derives the mirror repository names from the same values, and
 server lacks a digest or an upstream (`hack/mirror.py --check`). To bump a server, change its tag
 and digest in values.yaml; nothing else.
 
-Publishing (`.github/workflows/publish.yml`): every branch push tags images `<branch>-<sha7>`, a
-`v*` tag tags them with the tag and pushes the chart as version `X.Y.Z` with appVersion `vX.Y.Z`.
+Publishing (`.github/workflows/publish.yml`): every branch push tags images
+`<sanitized-branch>-<sha7>` and, after images succeed, publishes chart version
+`0.2.1-<sanitized-branch>.g<sha7>` with that image tag as appVersion (sanitization in README).
+A `v*` tag tags images with the tag and pushes chart version `X.Y.Z` with appVersion `vX.Y.Z`.
 Both publish workflows are skipped until the repository variable `AWS_ROLE_ARN` (terraform output
 `role_arn`) is set; `ECR_PUBLIC_REGISTRY` overrides the registry.
 
