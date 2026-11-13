@@ -1,13 +1,6 @@
 {{- if has .Values.fixture.name (list "http-markers") }}
 ---
-# Plaintext HTTP workload that emits a known set of unique markers, so a test
-# can assert what a snapshot *should* contain rather than merely that it is
-# non-empty.
-#
-# The markers go in the URL path, which lands in the request line of every HTTP
-# request. Plaintext on the wire is the point: the raw pcap bytes a snapshot
-# copies contain the marker verbatim, so the assertion needs no dissection —
-# it reads the exported pcap directly.
+# Plaintext URL markers must survive verbatim in exported PCAP bytes.
 apiVersion: v1
 kind: Service
 metadata:
