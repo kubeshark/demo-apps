@@ -42,8 +42,11 @@ public class Client {
         props.setProperty("sslmode", "verify-full");
         props.setProperty("sslrootcert", ca);
         props.setProperty("ApplicationName", agent);
+        Path ready = Path.of("/tmp/demo-apps-ready");
+        Files.deleteIfExists(ready);
 
         while (true) {
+            boolean httpsOK = false;
             try {
                 HttpRequest req = HttpRequest.newBuilder(URI.create(gateway + "/api/flows/" + flow + "/run?source=java"))
                         .header("X-Demo-Client", agent)
@@ -52,6 +55,7 @@ public class Client {
                         .build();
                 HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
                 log("https", "flow=" + flow + " status=" + resp.statusCode());
+                httpsOK = resp.statusCode() == 200;
             } catch (Exception e) {
                 log("https", "error=" + e);
             }
@@ -63,6 +67,7 @@ public class Client {
                 try (ResultSet rs = st.executeQuery()) {
                     rs.next();
                     log("postgresql", "selected=" + rs.getString(1));
+                    if (httpsOK) Files.writeString(ready, "");
                 }
             } catch (Exception e) {
                 log("postgresql", "error=" + e);

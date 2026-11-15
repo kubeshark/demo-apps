@@ -93,10 +93,17 @@ spec:
       - command:
         - sh
         - -c
-        - ./run.sh
+        - |
+          rm -f /tmp/demo-apps-ready
+          while true; do
+            echo "-----"
+            ./main && touch /tmp/demo-apps-ready || echo "send failed"
+            sleep 3
+          done
         image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/mertyildiran/mizutest-redis-go:latest@sha256:ca9311b77398530fdc2e04894eeea585e25fcf44b388669225412776eb863455
         imagePullPolicy: Always
         name: mizutest-redis-go
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
         ports:
         - containerPort: 6379
         resources:

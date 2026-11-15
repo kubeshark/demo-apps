@@ -6,6 +6,7 @@ import re
 import time
 from datetime import datetime, timezone
 
+from pathlib import Path
 import psycopg
 import requests
 
@@ -52,8 +53,11 @@ def main():
         sslrootcert=ca,
         application_name=agent,
     )
+    ready = Path("/tmp/demo-apps-ready")
+    ready.unlink(missing_ok=True)
 
     while True:
+        https_ok = False
         try:
             # A new session per run, so the TLS handshake recurs.
             with requests.Session() as s:
@@ -65,12 +69,15 @@ def main():
                     timeout=30,
                 )
             log("https", f"flow={flow} status={r.status_code}")
+            https_ok = r.status_code == 200
         except requests.RequestException as e:
             log("https", f"error={e}")
         try:
             with psycopg.connect(**dsn) as conn:
                 row = conn.execute("SELECT %s::text AS marker, version()", (literal,)).fetchone()
             log("postgresql", f"selected={row[0]}")
+            if https_ok:
+                ready.touch()
         except psycopg.Error as e:
             log("postgresql", f"error={e}")
         time.sleep(every)

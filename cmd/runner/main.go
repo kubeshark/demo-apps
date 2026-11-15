@@ -59,6 +59,8 @@ type runner struct {
 	mu      sync.Mutex
 	cfg     config
 	cancels map[string]context.CancelFunc
+	ready   map[string]bool
+	loaded  bool
 }
 
 func gatewayClient(http2 bool) *http.Client {
@@ -82,6 +84,18 @@ func main() {
 	}
 	defer r.client.CloseIdleConnections()
 	defer r.externalClient.CloseIdleConnections()
+	health := &http.Server{
+		Addr:              ":8081",
+		Handler:           http.HandlerFunc(r.readiness),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		if err := health.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("readiness", "err", err)
+			stop()
+		}
+	}()
+	defer health.Close()
 	r.reload(ctx)
 	t := time.NewTicker(configPoll)
 	defer t.Stop()
@@ -100,15 +114,22 @@ func main() {
 func (r *runner) reload(ctx context.Context) {
 	cfg, err := loadConfig(r.configPath)
 	if err != nil {
+		r.mu.Lock()
+		r.loaded = false
+		r.mu.Unlock()
 		slog.Error("config", "path", r.configPath, "err", err)
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.ready == nil {
+		r.ready = make(map[string]bool)
+	}
 	for name, cancel := range r.cancels {
 		if nc, ok := cfg.Flows[name]; !ok || nc.Interval != r.cfg.Flows[name].Interval {
 			cancel()
 			delete(r.cancels, name)
+			delete(r.ready, name)
 		}
 	}
 	for name, fc := range cfg.Flows {
@@ -121,6 +142,23 @@ func (r *runner) reload(ctx context.Context) {
 		go r.loop(fctx, name, fc.Interval)
 	}
 	r.cfg = cfg
+	r.loaded = true
+}
+
+func (r *runner) readiness(w http.ResponseWriter, _ *http.Request) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.loaded || len(r.cancels) == 0 {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	for name := range r.cancels {
+		if !r.ready[name] {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (r *runner) variant(n int) flowrun.Variant {
@@ -154,12 +192,17 @@ func (r *runner) loop(ctx context.Context, flow string, every time.Duration) {
 		if err != nil {
 			slog.Warn("run", "flow", flow, "variant", v, "err", err)
 		} else {
-			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+			body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096))
 			resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
+			if resp.StatusCode != http.StatusOK || readErr != nil {
 				slog.Warn("run", "flow", flow, "variant", v, "status", resp.StatusCode, "body", string(body))
 			} else {
 				slog.Info("run", "flow", flow, "variant", v, "via", source)
+				r.mu.Lock()
+				if r.ready != nil && ctx.Err() == nil {
+					r.ready[flow] = true
+				}
+				r.mu.Unlock()
 			}
 		}
 		select {

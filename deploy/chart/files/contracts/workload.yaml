@@ -1,0 +1,44 @@
+schemaVersion: 1
+functional:
+  presetPath: values-functional.yaml
+  genericFlows:
+    valuesPath: values.yaml
+    valuesKey: flows
+    readiness: runner-each-flow-success
+    http2: true
+  httpWarmupFixture: http
+  fixtures:
+    http: {readiness: traffic-success}
+    http-redis: {readiness: traffic-success}
+    http-redis-kafka: {readiness: traffic-success}
+    http-markers: {markerPrefix: true, markerCount: true, readiness: traffic-success}
+    resilience-traffic: {markerPrefix: true, readiness: traffic-success}
+    targeting-pair: {readiness: traffic-success}
+    go-stripped-traefik: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    go-crypto-tls-bifrost: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    boringssl-envoy: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    openssl-mongodb: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    openssl-mysql: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    openssl-postgresql: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    openssl-ingress-nginx: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    openssl-nginx-ingress-f5: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    boringssl-istio-gateway: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
+    kfl-tls-capture: {readiness: traffic-success}
+readiness:
+  runner-each-flow-success: HTTP 200 from every configured flow loop since startup or interval change; config must be valid and nonempty
+  traffic-success: Existing traffic loop completed a successful HTTP request, Redis operation sequence, Kafka three-message delivery batch or database marker batch since container startup
+  language-clients: Existing loop completed both HTTPS flow and database or gRPC operation successfully in the same iteration since container startup
+corpus:
+  flows: [catalog, inventory, orders, graphql, websocket, identity, telco, netprobe]
+  flowInterval: 1s
+  clientInterval: 1s
+  valuesPath: values.yaml
+  expectationsPath: files/contracts/corpus-expected.yaml
+  dissectorValuesPath: files/contracts/kubeshark-values.yaml
+  requiredCoverage: expectations-protocol-keys
+  requiredTransports: [sctp]
+  unsupportedCoverage:
+    tds: No TDS dissector; ledger is disabled
+    diameter-over-sctp: Live L7 dissection over SCTP is unavailable; Diameter over TCP and SCTP transport coverage remain required
+    kafka-unpinned: Negotiated versions beyond the pinned client protocol set are not supported
+    jsse-and-node-tls: Runtime TLS hooks are unavailable; do not infer plaintext coverage from a successful TLS operation

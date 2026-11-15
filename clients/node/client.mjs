@@ -1,6 +1,6 @@
 // Calls a flow through the gateway over HTTPS and the inventory gRPC API over TLS on an
 // interval, so TLS from the Node runtime shows up next to Go, the JVM and Python.
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync } from "node:fs";
 import https from "node:https";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
@@ -57,10 +57,10 @@ function callGateway() {
       },
       (res) => {
         res.resume();
-        res.on("end", () => resolve(`flow=${flow} status=${res.statusCode}`));
+        res.on("end", () => resolve({ ok: res.statusCode === 200, message: `flow=${flow} status=${res.statusCode}` }));
       },
     );
-    req.on("error", (e) => resolve(`error=${e.message}`));
+    req.on("error", (e) => resolve({ ok: false, message: `error=${e.message}` }));
     req.on("timeout", () => req.destroy(new Error("timeout")));
     req.end();
   });
@@ -73,13 +73,17 @@ function getStock(sku) {
     md.set("x-demo-client", agent);
     client.getStock({ sku }, md, { deadline: Date.now() + 10000 }, (err, resp) => {
       client.close();
-      resolve(err ? `error=${err.message}` : `${resp.name}: ${resp.available} at ${resp.warehouse}`);
+      resolve({ ok: !err, message: err ? `error=${err.message}` : `${resp.name}: ${resp.available} at ${resp.warehouse}` });
     });
   });
 }
 
+rmSync("/tmp/demo-apps-ready", { force: true });
 for (let n = 0; ; n++) {
-  log("https", await callGateway());
-  log("grpc", await getStock(skus[n % skus.length]));
+  const httpsResult = await callGateway();
+  log("https", httpsResult.message);
+  const grpcResult = await getStock(skus[n % skus.length]);
+  log("grpc", grpcResult.message);
+  if (httpsResult.ok && grpcResult.ok) writeFileSync("/tmp/demo-apps-ready", "");
   await new Promise((r) => setTimeout(r, every));
 }

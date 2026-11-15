@@ -1,5 +1,16 @@
 {{- if eq .Values.fixture.name "kfl-tls-capture" }}
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: outbound-tls-readiness-script
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+data:
+  ready.py: |
+    {{- .Files.Get "files/clients/outbound-tls-ready.py" | nindent 4 }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,7 +36,7 @@ spec:
       containers:
       - command:
         - python3
-        - example.py
+        - /scripts/ready.py
         env:
         - name: PYTHONUNBUFFERED
           value: '1'
@@ -34,6 +45,9 @@ spec:
         image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/mertyildiran/mizutest-outbound-tls-openssl:latest@sha256:8e56bcce5123ee017977a4b66619a021b2a20b559e8b5cfb5c647f7e6cb9e724
         imagePullPolicy: Always
         name: mizutest-outbound-tls-openssl
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
+        volumeMounts:
+        - {name: readiness-script, mountPath: /scripts, readOnly: true}
         ports:
         - containerPort: 80
         resources:
@@ -43,6 +57,10 @@ spec:
           requests:
             cpu: 10m
             memory: 10Mi
+      volumes:
+      - name: readiness-script
+        configMap:
+          name: outbound-tls-readiness-script
       nodeSelector:
         kubernetes.io/os: linux
 {{- end }}

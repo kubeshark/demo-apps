@@ -30,6 +30,7 @@ spec:
     spec:
       containers:
         - name: client
+          {{- include "demo-apps.trafficReadiness" $ | nindent 10 }}
           image: {{ include "demo-apps.image" $ctx }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           securityContext:

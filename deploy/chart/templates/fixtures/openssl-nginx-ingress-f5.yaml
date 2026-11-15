@@ -512,6 +512,7 @@ spec:
     spec:
       containers:
       - name: client
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
         image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
         env:
         - { name: MARKER_PREFIX,    value: {{ .Values.fixture.markerPrefix | quote }} }
@@ -521,6 +522,7 @@ spec:
         - -c
         - |
           set -eu
+          rm -f /tmp/demo-apps-ready
           : "${MARKER_PREFIX:?missing}"
           : "${EXPECTED_MARKERS:?missing}"
           while true; do
@@ -529,11 +531,11 @@ spec:
               # doesn't match a configured server. --connect-to keeps the
               # SNI (echo-f5.demo.local) aligned with the Host header while
               # the TCP connection still goes to the controller svc.
-              curl -sk --max-time 5 \
+              curl --fail -sk --max-time 5 \
                 --connect-to echo-f5.demo.local:443:nginx-ingress-controller:443 \
                 "https://echo-f5.demo.local/test/${MARKER_PREFIX}_seq${i}" \
                 -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
-                || echo "send failed"
+                && touch /tmp/demo-apps-ready || echo "send failed"
             done
             sleep {{ include "demo-apps.fixtureSeconds" . }}
           done

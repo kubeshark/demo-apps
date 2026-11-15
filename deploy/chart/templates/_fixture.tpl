@@ -1,16 +1,16 @@
 {{- define "demo-apps.validateFixture" -}}
 {{- $fixture := .Values.fixture -}}
 {{- if $fixture.name -}}
-{{- $plain := list "http" "http-redis" "http-redis-kafka" "http-markers" "resilience-traffic" "targeting-pair" -}}
-{{- $tls := list "go-stripped-traefik" "go-crypto-tls-bifrost" "boringssl-envoy" "openssl-mongodb" "openssl-mysql" "openssl-postgresql" "openssl-ingress-nginx" "openssl-nginx-ingress-f5" "boringssl-istio-gateway" -}}
-{{- if not (has $fixture.name (concat $plain $tls (list "kfl-tls-capture"))) -}}
+{{- $contract := .Files.Get "files/contracts/workload.yaml" | fromYaml -}}
+{{- if not (hasKey $contract.functional.fixtures $fixture.name) -}}
 {{- fail "fixture.name must select a supported fixture" -}}
 {{- end -}}
+{{- $capabilities := index $contract.functional.fixtures $fixture.name -}}
 {{- if or (include "demo-apps.anyFlow" .) .Values.tls.enabled .Values.clients.java.enabled .Values.clients.python.enabled .Values.clients.node.enabled .Values.gateway.ingress.enabled .Values.gateway.externalURL .Values.runner.http2 -}}
 {{- fail "fixture requires all generic flows, TLS, clients, ingress, externalURL and runner.http2 disabled; use values-functional.yaml" -}}
 {{- end -}}
-{{- $markers := or (has $fixture.name $tls) (has $fixture.name (list "http-markers" "resilience-traffic")) -}}
-{{- $counted := or (has $fixture.name $tls) (eq $fixture.name "http-markers") -}}
+{{- $markers := $capabilities.markerPrefix -}}
+{{- $counted := $capabilities.markerCount -}}
 {{- if $markers -}}
 {{- $prefix := toString $fixture.markerPrefix -}}
 {{- if not (or (eq $prefix "${MARKER_PREFIX}") (regexMatch "^[A-Za-z0-9][A-Za-z0-9_-]*$" $prefix)) -}}
@@ -27,7 +27,7 @@
 {{- else if $fixture.markerCount -}}
 {{- fail "this fixture does not accept markerCount" -}}
 {{- end -}}
-{{- if has $fixture.name $tls -}}
+{{- if $capabilities.interval -}}
 {{- if not (regexMatch "^[1-9][0-9]*s$" (toString $fixture.interval)) -}}
 {{- fail "fixture.interval must be a positive whole-second duration such as 2s or 3s" -}}
 {{- end -}}
@@ -43,4 +43,11 @@
 
 {{- define "demo-apps.fixtureClusterName" -}}
 {{- printf "tls-%s-%s" (sha256sum .root.Release.Namespace | trunc 16) .suffix -}}
+{{- end -}}
+
+{{- define "demo-apps.trafficReadiness" -}}
+readinessProbe:
+  exec:
+    command: ["test", "-f", "/tmp/demo-apps-ready"]
+  periodSeconds: 2
 {{- end -}}

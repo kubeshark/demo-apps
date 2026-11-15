@@ -28,11 +28,14 @@ spec:
       - image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/alpine/curl:8.9.1@sha256:e13f4217ebcbb8dbbfad0ae422bca76a3b037b0030cb7123138b4cb1ca49fbb5
         imagePullPolicy: Always
         name: curl-client
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
         command: ["/bin/sh", "-c"]
         args:
         - |
+          rm -f /tmp/demo-apps-ready
           while true; do
-            curl -sS -o /dev/null -w "HTTP %{http_code}\n" http://http-server 2>&1;
+            curl --fail -sS -o /dev/null -w "HTTP %{http_code}\n" http://http-server 2>&1 \
+              && touch /tmp/demo-apps-ready || echo "send failed"
             sleep 1;
           done
         resources: {}

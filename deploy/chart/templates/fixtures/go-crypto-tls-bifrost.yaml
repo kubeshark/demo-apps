@@ -255,6 +255,7 @@ spec:
     spec:
       containers:
       - name: client
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
         image: docker.io/curlimages/curl:latest@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
         env:
         - { name: MARKER_PREFIX, value: {{ .Values.fixture.markerPrefix | quote }} }
@@ -264,18 +265,19 @@ spec:
         - -c
         - |
           set -eu
+          rm -f /tmp/demo-apps-ready
           : "${MARKER_PREFIX:?missing}"
           : "${EXPECTED_MARKERS:?missing}"
           echo "Looping: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS}"
           while true; do
             for i in $(seq 1 "${EXPECTED_MARKERS}"); do
               MARKER="${MARKER_PREFIX}_seq${i}"
-              curl -s --max-time 10 \
+              curl --fail -s --max-time 10 \
                 "http://bifrost:8080/v1/chat/completions" \
                 -H "Content-Type: application/json" \
                 -d "{\"model\":\"litellm-mock/gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"TLS decryption marker ${MARKER}\"}],\"max_tokens\":10}" \
                 -o /dev/null -w "${MARKER} HTTP %{http_code}\n" \
-                || echo "send failed"
+                && touch /tmp/demo-apps-ready || echo "send failed"
             done
             sleep {{ include "demo-apps.fixtureSeconds" . }}
           done
