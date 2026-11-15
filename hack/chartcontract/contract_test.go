@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,7 +95,7 @@ func decodeDocuments(t *testing.T, data []byte) []document {
 	for {
 		var doc document
 		err := dec.Decode(&doc)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return docs
 		}
 		if err != nil {
@@ -122,12 +123,20 @@ func TestPackagedWorkloadContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Errorf("close chart archive: %v", err)
+		}
+	}()
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gz.Close()
+	defer func() {
+		if err := gz.Close(); err != nil {
+			t.Errorf("close chart gzip reader: %v", err)
+		}
+	}()
 	tr := tar.NewReader(gz)
 	assets := map[string][]byte{}
 	for {

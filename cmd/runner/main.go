@@ -95,7 +95,11 @@ func main() {
 			stop()
 		}
 	}()
-	defer health.Close()
+	defer func() {
+		if err := health.Close(); err != nil {
+			slog.Error("readiness shutdown", "err", err)
+		}
+	}()
 	r.reload(ctx)
 	t := time.NewTicker(configPoll)
 	defer t.Stop()
