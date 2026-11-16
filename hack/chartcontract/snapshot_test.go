@@ -136,29 +136,30 @@ func testSnapshotSeed(t *testing.T, metadata contract, seed []byte) {
 			if flow.stage == 4 || seq != flow.next[direction] || ack != flow.next[1-direction] {
 				t.Fatal("TCP sequence/acknowledgment discontinuity or packet after teardown")
 			}
-			if flow.stage == 2 {
+			switch {
+			case flow.stage == 2:
 				if direction != 0 || flags != 0x10 || len(data) != 0 {
 					t.Fatal("incomplete TCP handshake")
 				}
 				flow.stage = 3
-			} else if flow.fin[0] && flow.fin[1] {
+			case flow.fin[0] && flow.fin[1]:
 				if direction != 0 || flags != 0x10 || len(data) != 0 {
 					t.Fatal("teardown must end with client ACK")
 				}
 				flow.stage = 4
-			} else if flags == 0x11 && len(data) == 0 && !flow.fin[direction] {
+			case flags == 0x11 && len(data) == 0 && !flow.fin[direction]:
 				if direction == 1 && !flow.fin[0] {
 					t.Fatal("server FIN precedes client FIN")
 				}
 				flow.fin[direction] = true
 				flow.next[direction]++
-			} else if flags == 0x18 && len(data) > 0 && !flow.fin[0] && !flow.fin[1] {
+			case flags == 0x18 && len(data) > 0 && !flow.fin[0] && !flow.fin[1]:
 				if direction == 0 && len(flow.payload[1]) > 0 {
 					t.Fatal("request data follows the response")
 				}
 				flow.payload[direction] = append(flow.payload[direction], data...)
 				flow.next[direction] += uint32(len(data))
-			} else if flags != 0x10 || len(data) != 0 {
+			case flags != 0x10 || len(data) != 0:
 				t.Fatal("unexpected TCP flags or payload")
 			}
 		}
