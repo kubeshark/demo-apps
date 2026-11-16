@@ -99,6 +99,10 @@ to succeed in one iteration. These signals latch until container restart (or run
 Probes only read runtime state or `/tmp/demo-apps-ready`; they generate no workload requests.
 Readiness proves traffic operation success, not capture activation, dissection or coverage.
 
+The `http-markers` and `resilience-traffic` nginx paths intentionally return 404.
+Their readiness requires a completed HTTP exchange, not a 2xx response.
+Transport failures still leave the client unready.
+
 The fixed Redis client retries its existing SET/GET sequence every three seconds, including
 after failure. The fixed Kafka client keeps its consumer and existing admin/three-message
 producer sequence, sleeping five seconds per attempt; readiness requires successful delivery

@@ -81,7 +81,8 @@ spec:
           echo "Looping: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS}"
           while true; do
             for i in $(seq 1 "${EXPECTED_MARKERS}"); do
-              curl --fail -sS --max-time 5 \
+              # Marker paths intentionally return 404.
+              curl -sS --max-time 5 \
                 "http://http-markers-server/test/${MARKER_PREFIX}_seq${i}" \
                 -o /dev/null -w "${MARKER_PREFIX}_seq${i} HTTP %{http_code}\n" \
                 && touch /tmp/demo-apps-ready || echo "send failed"

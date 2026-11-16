@@ -90,7 +90,8 @@ spec:
           n=0
           while true; do
             n=$((n+1))
-            curl --fail -sS --max-time 5 \
+            # Marker paths intentionally return 404.
+            curl -sS --max-time 5 \
               "http://resilience-server/test/${MARKER_PREFIX}_seq${n}" \
               -o /dev/null -w "${MARKER_PREFIX}_seq${n} HTTP %{http_code}\n" \
               && touch /tmp/demo-apps-ready || echo "send failed"

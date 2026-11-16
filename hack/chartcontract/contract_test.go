@@ -320,6 +320,9 @@ func TestPackagedWorkloadContract(t *testing.T) {
 						if name == metadata.Functional.HTTPWarmupFixture {
 							testHTTPReadiness(t, script, c)
 						}
+						if name == "http-markers" || name == "resilience-traffic" {
+							testMarkerHTTPReadiness(t, script, c)
+						}
 					})
 				}
 			}
@@ -479,6 +482,35 @@ func testHTTPReadiness(t *testing.T, script string, c container) {
 	}
 	if err := exec.Command(probe[0], args...).Run(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func testMarkerHTTPReadiness(t *testing.T, script string, c container) {
+	t.Helper()
+	if _, err := exec.LookPath("curl"); err != nil {
+		t.Skip("curl is required for marker readiness behavior")
+	}
+	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
+	t.Cleanup(server.Close)
+	ready := filepath.Join(t.TempDir(), "ready")
+	script = strings.NewReplacer(
+		"/tmp/demo-apps-ready", ready,
+		"http://http-markers-server", server.URL,
+		"http://resilience-server", server.URL,
+	).Replace(script)
+	var env []string
+	for _, item := range c.Env {
+		env = append(env, item.Name+"="+item.Value)
+	}
+	startScript(t, script, env)
+	eventually(t, func() bool { _, err := os.Stat(ready); return err == nil })
+	probe := c.ReadinessProbe.Exec.Command
+	args := make([]string, len(probe)-1)
+	for i, arg := range probe[1:] {
+		args[i] = strings.ReplaceAll(arg, "/tmp/demo-apps-ready", ready)
+	}
+	if err := exec.Command(probe[0], args...).Run(); err != nil {
+		t.Fatalf("completed marker request did not make client ready: %v", err)
 	}
 }
 
