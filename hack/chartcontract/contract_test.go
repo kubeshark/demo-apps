@@ -490,7 +490,7 @@ func testMarkerHTTPReadiness(t *testing.T, script string, c container) {
 	if _, err := exec.LookPath("curl"); err != nil {
 		t.Skip("curl is required for marker readiness behavior")
 	}
-	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
+	server := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(server.Close)
 	ready := filepath.Join(t.TempDir(), "ready")
 	script = strings.NewReplacer(
