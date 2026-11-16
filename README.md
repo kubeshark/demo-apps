@@ -110,10 +110,36 @@ callbacks for all three messages. A mounted wrapper observes the original image-
 client's existing requests and marks readiness only for a 2xx response. These wrappers retain
 the original images and workload content and do not copy image-owned credentials.
 
-This contract contains no snapshot metadata or seed payload. Snapshot replay still requires a
-separately approved, credential-safe artifact and an authorized release. Local contract work
-does not publish charts/images or authorize copying private captures. Existing pinned released
-charts remain usable; artifact-dependent consumers must not cut over to this unreleased branch.
+### Synthetic snapshot seed
+
+The chart also owns `files/seeds/snapshot.pcap`. `snapshotSeed` in the packaged workload
+contract records its chart-relative `path`, raw-byte `sha256` and `format: pcap-dlt-raw`.
+The raw seed digest is separate from the chart archive checksum. Snapshot consumers must
+resolve this metadata from the same pinned chart archive they record for workload identity.
+
+This is newly generated synthetic data, not a captured or sanitized workload. It contains 25
+complete IPv4/TCP HTTP/1.1 conversations, with handshakes, ordered segmented request/response
+payloads, valid checksums and teardown. Only RFC 5737 documentation IPv4 addresses and
+`snapshot.demo.invalid` occur as network identities. GET, POST, PUT and DELETE operations,
+success/error statuses and synthetic JSON item counts vary; there are no credentials or
+external inputs. Fixed timestamps and pure deterministic construction make regeneration exact:
+
+```bash
+python3 hack/snapshot_seed.py
+```
+
+The generator uses only Python's standard library and prints the raw digest and size. Commit
+the generator, binary seed and matching metadata digest together. `make check-generated` checks
+regeneration drift. `hack/chartcontract` checks complete PCAP/TCP/HTTP framing, synthetic-only
+payload constraints and the actual packaged bytes; the seed must stay at or below 512 KiB.
+
+demo-apps owns this seed and contract; perfshark consumes the packaged artifact rather than
+maintaining a second copy. This intentionally changes snapshot content and identity, so snapshot
+measurements are not interchangeable with earlier seed baselines. Preserve those baselines and
+record the new seed digest for new measurements; changing the seed does not promote a baseline.
+Functional/corpus definitions, measured floors, cadence and transport requirements are unchanged.
+Consumers need a published, pinned chart containing this metadata before cutover. Local generation
+does not publish images/charts or authorize live runs, stable releases or baseline promotion.
 
 
 ### Fixed functional fixtures

@@ -3,7 +3,7 @@ CLIENTS := java python node
 CHART := deploy/chart
 MARKERS := $(wildcard internal/flows/*/markers.tsv)
 
-.PHONY: all build test lint proto markers chart-lint budget check-generated images client-images
+.PHONY: all build test lint proto markers snapshot-seed chart-lint budget check-generated images client-images
 
 all: build test lint chart-lint budget
 
@@ -28,7 +28,10 @@ markers:
 	for f in $(MARKERS); do cp $$f $(CHART)/files/markers/$$(basename $$(dirname $$f)).tsv; done
 	cp clients/markers.tsv $(CHART)/files/markers/clients.tsv
 
-check-generated: proto markers
+snapshot-seed:
+	python3 hack/snapshot_seed.py
+
+check-generated: proto markers snapshot-seed
 	git diff --exit-code -- gen $(CHART)/files
 	test -z "$$(git status --porcelain -- gen $(CHART)/files)"
 

@@ -31,7 +31,12 @@ type capability struct {
 
 type contract struct {
 	SchemaVersion int `yaml:"schemaVersion"`
-	Functional    struct {
+	SnapshotSeed  struct {
+		Path   string `yaml:"path"`
+		SHA256 string `yaml:"sha256"`
+		Format string `yaml:"format"`
+	} `yaml:"snapshotSeed"`
+	Functional struct {
 		PresetPath   string `yaml:"presetPath"`
 		GenericFlows struct {
 			ValuesPath string `yaml:"valuesPath"`
@@ -162,6 +167,9 @@ func TestPackagedWorkloadContract(t *testing.T) {
 	if metadata.SchemaVersion != 1 {
 		t.Fatalf("schema version = %d", metadata.SchemaVersion)
 	}
+	t.Run("snapshotSeed", func(t *testing.T) {
+		testSnapshotSeed(t, metadata, assets[metadata.SnapshotSeed.Path])
+	})
 	preset := filepath.Join(dir, "functional.yaml")
 	if err := os.WriteFile(preset, assets[metadata.Functional.PresetPath], 0600); err != nil {
 		t.Fatal(err)

@@ -1,4 +1,8 @@
 schemaVersion: 1
+snapshotSeed:
+  path: files/seeds/snapshot.pcap
+  sha256: eeff771a3d1097df13fe561f201482cfe3383a21314fc7c5ff26d5f42c4ef8eb
+  format: pcap-dlt-raw
 functional:
   presetPath: values-functional.yaml
   genericFlows:
