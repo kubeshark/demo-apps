@@ -46,6 +46,7 @@ jobs:
           go-version-file: go.mod
       - uses: azure/setup-helm@v4
       - run: make chart-lint
+      - run: go test ./hack/chartcontract
       - run: make budget
       - run: python3 hack/mirror.py --check
 

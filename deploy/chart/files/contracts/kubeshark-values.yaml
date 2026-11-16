@@ -1,5 +1,5 @@
 # Kubeshark chart values that let every demo-apps flow show up.
-# helm upgrade --install kubeshark kubeshark/kubeshark -f deploy/kubeshark-values.yaml
+# helm upgrade --install kubeshark kubeshark/kubeshark -f deploy/chart/files/contracts/kubeshark-values.yaml
 tap:
   # The chart default omits sctp; the telco flows need it.
   enabledDissectors:

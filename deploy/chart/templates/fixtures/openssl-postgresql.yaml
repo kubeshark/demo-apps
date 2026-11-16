@@ -188,6 +188,7 @@ data:
   send.sh: |
     #!/bin/sh
     set -e
+    rm -f /tmp/demo-apps-ready
     : "${MARKER_PREFIX:?missing}"
     : "${EXPECTED_MARKERS:?missing}"
     export PGPASSWORD="test"
@@ -198,8 +199,10 @@ data:
       sleep 2
     done
 
-    psql -h postgres -U postgres -d testdb -c \
-      "CREATE TABLE IF NOT EXISTS tls_test (id SERIAL PRIMARY KEY, marker TEXT)"
+    until psql -v ON_ERROR_STOP=1 -h postgres -U postgres -d testdb -c \
+      "CREATE TABLE IF NOT EXISTS tls_test (id SERIAL PRIMARY KEY, marker TEXT)"; do
+      sleep 2
+    done
 
     # Compose a per-iteration query containing every expected marker. Loop forever
     # so the verifier doesn't race with a single one-shot insertion.
@@ -213,7 +216,8 @@ data:
 
     echo "Sending markers: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS} (loop)"
     while true; do
-      psql -h postgres -U postgres -d testdb -c "$Q" || echo "send failed, retrying"
+      psql -v ON_ERROR_STOP=1 -h postgres -U postgres -d testdb -c "$Q" \
+        && touch /tmp/demo-apps-ready || echo "send failed, retrying"
       sleep {{ include "demo-apps.fixtureSeconds" . }}
     done
 ---
@@ -233,6 +237,7 @@ spec:
     spec:
       containers:
       - name: client
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
         image: docker.io/postgres:16@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
         command: ["/bin/sh", "/scripts/send.sh"]
         env:

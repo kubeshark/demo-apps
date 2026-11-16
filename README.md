@@ -19,8 +19,8 @@ Open http://localhost:8080, press Run on a flow, and follow the hops in Kubeshar
 runs on its own interval (`flows.<name>.interval`), with a slow and an error variant on a fixed
 cadence (`runner.slowEvery`, `runner.errorEvery`).
 
-Kubeshark needs `deploy/kubeshark-values.yaml` to show every flow: it enables the `sctp` dissector
-and keeps dissection on when nobody is watching the UI.
+Kubeshark needs `deploy/chart/files/contracts/kubeshark-values.yaml` to show every flow: it
+enables the `sctp` dissector and keeps dissection on when nobody is watching the UI.
 
 Cluster requirements: the telco flow needs SCTP through the CNI (on Cilium set `enable-sctp: "true"`
 in `cilium-config` and restart the agents; without it the TCP Diameter leg still works), and the
@@ -72,6 +72,75 @@ helm install demo-apps "$tmp/demo-apps-$VERSION.tgz" \
 Helm does not automatically apply the bundled preset: pass it with `-f` after extracting it,
 or use the local copy from the matching revision. Leave `global.imageTag` unset for an OCI chart;
 its `appVersion` pins the matching published images. Delete the case namespace after the run.
+
+### Packaged workload contract
+
+Every chart archive contains `files/contracts/workload.yaml` with `schemaVersion: 1`.
+Paths in this metadata are relative to the unpacked chart. Available generic flows are the keys
+of `flows` in `values.yaml`, not a separate catalog. `functional.fixtures` declares supported
+fixed fixtures and their accepted marker/interval settings; Helm validates against this same map.
+`functional.httpWarmupFixture` selects the existing `http` fixture.
+
+`corpus` binds the eight measured flows, their `1s` runner interval and `1s` language-client
+interval to the unchanged absolute floors in `files/contracts/corpus-expected.yaml`. That file's
+`window: 5m` is the required capture window. Every protocol key other than `window` is required
+coverage. Use chart defaults from the matching release for other workload settings, including TLS,
+language clients, the pinned Kafka versions and the runner's error/slow schedule. A different
+window, flow set, cadence or workload content needs a newly measured contract, not scaled floors.
+The packaged `files/contracts/kubeshark-values.yaml` is the authoritative dissector configuration.
+SCTP transport remains required; unsupported L7/runtime coverage is explicit in the metadata.
+
+The runner's `/ready` endpoint on port 8081 returns success only after every configured flow has
+returned HTTP 200 from its existing loop. New or interval-changed flows must succeed again;
+invalid or empty configuration is not ready. Shell fixture clients become ready after an existing
+HTTP request, Redis operation sequence, Kafka delivery batch or database marker batch succeeds.
+Language clients require both existing operations
+to succeed in one iteration. These signals latch until container restart (or runner loop change).
+Probes only read runtime state or `/tmp/demo-apps-ready`; they generate no workload requests.
+Readiness proves traffic operation success, not capture activation, dissection or coverage.
+
+The `http-markers` and `resilience-traffic` nginx paths intentionally return 404.
+Their readiness requires a completed HTTP exchange, not a 2xx response.
+Transport failures still leave the client unready.
+
+The fixed Redis client retries its existing SET/GET sequence every three seconds, including
+after failure. The fixed Kafka client keeps its consumer and existing admin/three-message
+producer sequence, sleeping five seconds per attempt; readiness requires successful delivery
+callbacks for all three messages. A mounted wrapper observes the original image-owned TLS
+client's existing requests and marks readiness only for a 2xx response. These wrappers retain
+the original images and workload content and do not copy image-owned credentials.
+
+### Synthetic snapshot seed
+
+The chart also owns `files/seeds/snapshot.pcap`. `snapshotSeed` in the packaged workload
+contract records its chart-relative `path`, raw-byte `sha256` and `format: pcap-dlt-raw`.
+The raw seed digest is separate from the chart archive checksum. Snapshot consumers must
+resolve this metadata from the same pinned chart archive they record for workload identity.
+
+This is newly generated synthetic data, not a captured or sanitized workload. It contains 25
+complete IPv4/TCP HTTP/1.1 conversations, with handshakes, ordered segmented request/response
+payloads, valid checksums and teardown. Only RFC 5737 documentation IPv4 addresses and
+`snapshot.demo.invalid` occur as network identities. GET, POST, PUT and DELETE operations,
+success/error statuses and synthetic JSON item counts vary; there are no credentials or
+external inputs. Fixed timestamps and pure deterministic construction make regeneration exact:
+
+```bash
+python3 hack/snapshot_seed.py
+```
+
+The generator uses only Python's standard library and prints the raw digest and size. Commit
+the generator, binary seed and matching metadata digest together. `make check-generated` checks
+regeneration drift. `hack/chartcontract` checks complete PCAP/TCP/HTTP framing, synthetic-only
+payload constraints and the actual packaged bytes; the seed must stay at or below 512 KiB.
+
+demo-apps owns this seed and contract; perfshark consumes the packaged artifact rather than
+maintaining a second copy. This intentionally changes snapshot content and identity, so snapshot
+measurements are not interchangeable with earlier seed baselines. Preserve those baselines and
+record the new seed digest for new measurements; changing the seed does not promote a baseline.
+Functional/corpus definitions, measured floors, cadence and transport requirements are unchanged.
+Consumers need a published, pinned chart containing this metadata before cutover. Local generation
+does not publish images/charts or authorize live runs, stable releases or baseline promotion.
+
 
 ### Fixed functional fixtures
 

@@ -134,6 +134,7 @@ data:
   send.sh: |
     #!/bin/sh
     set -e
+    rm -f /tmp/demo-apps-ready
     : "${MARKER_PREFIX:?missing}"
     : "${EXPECTED_MARKERS:?missing}"
 
@@ -144,8 +145,10 @@ data:
       sleep 2
     done
 
-    mysql --host=mysql --user=root --password=test --ssl-mode=REQUIRED testdb \
-      -e "CREATE TABLE IF NOT EXISTS tls_test (id INT AUTO_INCREMENT PRIMARY KEY, marker VARCHAR(255))"
+    until mysql --host=mysql --user=root --password=test --ssl-mode=REQUIRED testdb \
+      -e "CREATE TABLE IF NOT EXISTS tls_test (id INT AUTO_INCREMENT PRIMARY KEY, marker VARCHAR(255))"; do
+      sleep 2
+    done
 
     # Compose the per-iteration query containing every expected marker. The verifier
     # only needs each marker to appear inside one captured query body - looping
@@ -161,7 +164,7 @@ data:
     echo "Sending markers: ${MARKER_PREFIX}_seq1..${EXPECTED_MARKERS} (loop)"
     while true; do
       mysql --host=mysql --user=root --password=test --ssl-mode=REQUIRED testdb \
-        -e "$Q" || echo "send failed, retrying"
+        -e "$Q" && touch /tmp/demo-apps-ready || echo "send failed, retrying"
       sleep {{ include "demo-apps.fixtureSeconds" . }}
     done
 ---
@@ -181,6 +184,7 @@ spec:
     spec:
       containers:
       - name: client
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
         image: docker.io/mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
         command: ["/bin/sh", "/scripts/send.sh"]
         env:

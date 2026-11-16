@@ -131,6 +131,7 @@ data:
   send.sh: |
     #!/bin/sh
     set -e
+    rm -f /tmp/demo-apps-ready
     : "${MARKER_PREFIX:?missing}"
     : "${EXPECTED_MARKERS:?missing}"
 
@@ -151,7 +152,7 @@ data:
         --tlsAllowInvalidHostnames \
         "mongodb://mongo:27017/testdb" \
         --quiet \
-        --eval "$JS" || echo "send failed, retrying"
+        --eval "$JS" && touch /tmp/demo-apps-ready || echo "send failed, retrying"
       sleep {{ include "demo-apps.fixtureSeconds" . }}
     done
 ---
@@ -171,6 +172,7 @@ spec:
     spec:
       containers:
       - name: client
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
         image: docker.io/mongo:8.0.26@sha256:3ce3de7f40e914034b03b7dec654005ab54f7dc8306937e44ec6760d9e9409a1
         command: ["/bin/sh", "/scripts/send.sh"]
         env:

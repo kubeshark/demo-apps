@@ -1,5 +1,16 @@
 {{- if has .Values.fixture.name (list "http-redis-kafka") }}
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace | quote }}
+  name: kafka-readiness-script
+  labels:
+    demo-apps.kubeshark.co/fixture: {{ .Values.fixture.name | quote }}
+data:
+  produce-ready.py: |
+    {{- .Files.Get "files/clients/kafka-ready.py" | nindent 4 }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -140,14 +151,29 @@ spec:
         name: mizutest-kafka-py
         version: v0.1.0
     spec:
+      securityContext:
+        fsGroup: 10001
       containers:
       - command:
         - sh
         - -c
-        - ./run.sh
+        - |
+          rm -f /tmp/demo-apps-ready
+          python3 consume.py &
+          while true; do
+            echo "-----"
+            if python3 admin_client.py; then
+              python3 /scripts/produce-ready.py || echo "send failed"
+            fi
+            sleep 5
+          done
         image: 851725373216.dkr.ecr.us-east-1.amazonaws.com/mertyildiran/mizutest-kafka-py:latest@sha256:52171a23989fab34db3f7865affec4cbf9c7d53b205aa06e089b7147469fcbd8
         imagePullPolicy: Always
         name: mizutest-kafka-py
+        {{- include "demo-apps.trafficReadiness" . | nindent 8 }}
+        volumeMounts:
+        - {name: readiness-script, mountPath: /scripts, readOnly: true}
+        - {name: readiness-state, mountPath: /tmp}
         ports:
         - containerPort: 9092
         resources:
@@ -166,6 +192,12 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 10001
+      volumes:
+      - name: readiness-script
+        configMap:
+          name: kafka-readiness-script
+      - name: readiness-state
+        emptyDir: {}
       nodeSelector:
         kubernetes.io/os: linux
 {{- end }}

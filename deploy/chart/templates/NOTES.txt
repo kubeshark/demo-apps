@@ -27,7 +27,7 @@ UI:
   or http://{{ .Values.gateway.ingress.host }}
 {{- end }}
 
-Kubeshark values that make every flow visible (sctp is off by default, and headless
-clusters need dissection to stay on) are in deploy/kubeshark-values.yaml of the
-demo-apps repository.
+Kubeshark values that make every flow visible are packaged in
+files/contracts/kubeshark-values.yaml inside this chart archive, alongside the
+versioned functional/corpus workload contract in files/contracts/workload.yaml.
 {{- end }}

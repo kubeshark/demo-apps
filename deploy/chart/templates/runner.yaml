@@ -38,6 +38,14 @@ spec:
         - name: runner
           image: {{ include "demo-apps.image" $ctx }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: readiness
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: readiness
+            periodSeconds: 2
           securityContext:
             {{- include "demo-apps.securityContext" . | nindent 12 }}
           env:
