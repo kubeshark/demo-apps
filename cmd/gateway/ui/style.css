@@ -179,6 +179,28 @@ h2:first-child { margin-top: 0; }
 .declared li { margin: 3px 0; }
 .wire { margin-left: 6px; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
 
+.filters { margin-bottom: 18px; }
+.filters-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.filters-head h2 { margin: 0; }
+.filters > p { margin: 6px 0 12px; }
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segmented button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border: 0; background: #fff;
+  color: var(--muted); cursor: pointer;
+}
+.segmented button + button { border-left: 1px solid var(--line); }
+.segmented button.on { background: var(--side); color: #fff; }
+.kfl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.kfl-title { display: flex; align-items: center; gap: 8px; font-weight: 560; margin-bottom: 4px; }
+.kfl-row { display: flex; gap: 8px; align-items: stretch; }
+.kfl {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 7px;
+  background: var(--term); color: var(--term-text);
+  font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.btn.copy { flex: none; padding: 0 14px; }
+.offscreen { position: fixed; left: -9999px; top: 0; }
+
 @keyframes pulse { 50% { opacity: .5; } }
 
 @media (max-width: 900px) {

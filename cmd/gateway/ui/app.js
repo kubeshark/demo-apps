@@ -12,7 +12,7 @@ const KINDS = {
   masked: { title: "Masked form", note: "what a redacted card number looks like" },
 };
 
-const state = { flows: [], details: {}, running: {}, lastOK: 0 };
+const state = { flows: [], details: {}, running: {}, filterVariant: {}, copied: null, lastOK: 0 };
 
 function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
@@ -166,6 +166,49 @@ function renderRun(run, open) {
     run.error ? h("p", { class: "run-error" }, run.error) : null);
 }
 
+async function copy(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (_) {
+    // The clipboard API needs a secure context; plain http to the gateway is not one.
+    const ta = h("textarea", { class: "offscreen" }, text);
+    document.body.append(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+  state.copied = text;
+  render();
+  setTimeout(() => { if (state.copied === text) { state.copied = null; render(); } }, 1500);
+}
+
+// The KFL queries that show in Kubeshark what a run of the selected variant
+// produced. Pressing a run button selects its variant.
+function renderFilters(name) {
+  const d = state.details[name];
+  const selected = state.filterVariant[name] || "ok";
+  const filters = ((d && d.filters) || []).filter((f) => f.variant === selected);
+  return h("section", { class: "panel filters" },
+    h("div", { class: "filters-head" },
+      h("h2", {}, "See it in Kubeshark"),
+      h("div", { class: "segmented", role: "tablist" }, VARIANTS.map((v) =>
+        h("button", {
+          role: "tab", "aria-selected": v.id === selected ? "true" : "false",
+          class: v.id === selected ? "on" : "",
+          onclick: () => { state.filterVariant[name] = v.id; render(); },
+        }, v.label)))),
+    h("p", { class: "muted" }, "Paste a filter into Kubeshark's filter bar to see what this run produced."),
+    !d ? h("p", { class: "muted" }, "Loading") :
+      filters.length === 0 ? h("p", { class: "muted" }, "No filters for this variant.") :
+        h("ul", { class: "kfl-list" }, filters.map((f) =>
+          h("li", {},
+            h("div", { class: "kfl-title" }, f.title,
+              f.redaction ? h("span", { class: "kind redact", title: "Matches only while Kubeshark redacts sensitive data" }, "redaction on") : null),
+            h("div", { class: "kfl-row" },
+              h("code", { class: "kfl" }, f.kfl),
+              h("button", { class: "btn copy", onclick: () => copy(f.kfl) }, state.copied === f.kfl ? "Copied" : "Copy"))))));
+}
+
 function renderFlow(name) {
   const f = state.flows.find((x) => x.name === name);
   if (!f) return [h("p", { class: "muted" }, `No flow named ${name}.`)];
@@ -178,6 +221,7 @@ function renderFlow(name) {
         h("p", { class: "lede" }, f.description)),
       runButtons(f.name, true)),
     h("ol", { class: "hops" }, path.map((p, i) => [i ? h("li", { class: "arrow", "aria-hidden": "true" }, "\u2192") : null, h("li", { class: "hop" }, p)])),
+    renderFilters(f.name),
     h("div", { class: "split" },
       h("section", { class: "panel" },
         h("h2", {}, "Latest output"),
@@ -238,6 +282,7 @@ async function refresh() {
 
 async function run(name, variant) {
   state.running[name] = variant;
+  state.filterVariant[name] = variant;
   render();
   try {
     await fetch(`/api/flows/${encodeURIComponent(name)}/run?variant=${variant}&source=ui`, { method: "POST" });

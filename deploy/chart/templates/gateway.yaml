@@ -23,6 +23,11 @@ spec:
           securityContext:
             {{- include "demo-apps.securityContext" . | nindent 12 }}
           env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef: {fieldPath: metadata.namespace}
+            - name: RELEASE_NAME
+              value: {{ .Release.Name }}
             {{- if .Values.flows.catalog.enabled }}
             - name: CATALOG_URL
               value: http://{{ .Release.Name }}-catalog:8080

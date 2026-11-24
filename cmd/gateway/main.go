@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/kubeshark/demo-apps/internal/flowrun"
@@ -22,12 +23,19 @@ const runTimeout = 30 * time.Second
 type gateway struct {
 	flows   map[string]flowrun.Flow
 	history *flowrun.History
+	// placeholders fills the {namespace} and {release} a flow's Kubeshark
+	// filters name.
+	placeholders *strings.Replacer
 }
 
 func main() {
 	g := &gateway{
 		flows:   map[string]flowrun.Flow{},
 		history: flowrun.NewHistory(10),
+		placeholders: strings.NewReplacer(
+			"{namespace}", httpx.Env("POD_NAMESPACE", "demo-apps"),
+			"{release}", httpx.Env("RELEASE_NAME", "demo-apps"),
+		),
 	}
 	// A flow is constructed when the address of its first hop is configured;
 	// the chart sets exactly the addresses of the enabled flows.
@@ -109,7 +117,8 @@ type declared struct {
 
 type flowDetail struct {
 	flowView
-	Declared []declared `json:"declared"`
+	Declared []declared       `json:"declared"`
+	Filters  []flowrun.Filter `json:"filters"`
 }
 
 func (g *gateway) detail(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +130,10 @@ func (g *gateway) detail(w http.ResponseWriter, r *http.Request) {
 	d := flowDetail{flowView: g.view(f)}
 	for _, m := range f.Markers().Markers {
 		d.Declared = append(d.Declared, declared{Kind: string(m.Kind), Expect: string(m.Expect), What: m.What})
+	}
+	for _, fl := range f.Filters() {
+		fl.KFL = g.placeholders.Replace(fl.KFL)
+		d.Filters = append(d.Filters, fl)
 	}
 	httpx.JSON(w, http.StatusOK, d)
 }
