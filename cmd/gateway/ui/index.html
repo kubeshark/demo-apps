@@ -2,29 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Kubeshark demo-apps</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>demo-apps</title>
 <link rel="stylesheet" href="/ui/style.css">
 </head>
 <body>
-<header>
-  <h1>demo-apps</h1>
-  <p>Each card is one path through the services. Run it and watch the hops appear in Kubeshark.</p>
-</header>
-<main id="flows">
-{{range .}}
-<section class="flow" data-flow="{{.Name}}">
-  <h2>{{.Name}}</h2>
-  <p class="path">{{.Path}}</p>
-  <p>{{.Description}} <small>({{.Markers}} declared markers)</small></p>
-  <div class="actions">
-    <button data-variant="ok">Run</button>
-    <button data-variant="slow">Run slow</button>
-    <button data-variant="error">Run error</button>
+<aside class="sidebar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <div class="brand-name">demo-apps</div>
+      <div class="brand-sub">traffic for Kubeshark</div>
+    </div>
   </div>
-  <ol class="recent"></ol>
-</section>
-{{end}}
-</main>
+  <nav id="nav" aria-label="Flows"></nav>
+  <div class="sidebar-foot" id="refresh-state">Connecting</div>
+</aside>
+<main id="main" tabindex="-1"></main>
 <script src="/ui/app.js"></script>
 </body>
 </html>

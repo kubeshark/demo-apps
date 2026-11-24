@@ -100,10 +100,12 @@ func (h *History) Add(r Result) {
 	h.runs[r.Flow] = rs
 }
 
+// Recent returns the flow's latest results, newest first; empty, never nil,
+// so the API reports a flow that has not run as [] rather than null.
 func (h *History) Recent(flow string) []Result {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return append([]Result(nil), h.runs[flow]...)
+	return append([]Result{}, h.runs[flow]...)
 }
 
 // Registration ties a flow to the environment variable that carries the

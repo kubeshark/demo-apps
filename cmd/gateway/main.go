@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"embed"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
@@ -23,14 +22,12 @@ const runTimeout = 30 * time.Second
 type gateway struct {
 	flows   map[string]flowrun.Flow
 	history *flowrun.History
-	page    *template.Template
 }
 
 func main() {
 	g := &gateway{
 		flows:   map[string]flowrun.Flow{},
 		history: flowrun.NewHistory(10),
-		page:    template.Must(template.ParseFS(ui, "ui/index.html")),
 	}
 	// A flow is constructed when the address of its first hop is configured;
 	// the chart sets exactly the addresses of the enabled flows.
@@ -53,9 +50,10 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	mux.HandleFunc("GET /{$}", g.index)
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) { http.ServeFileFS(w, r, ui, "ui/index.html") })
 	mux.Handle("GET /ui/", http.FileServerFS(ui))
 	mux.HandleFunc("GET /api/flows", g.list)
+	mux.HandleFunc("GET /api/flows/{name}", g.detail)
 	mux.HandleFunc("POST /api/flows/{name}/run", g.run)
 	tl := httpx.TLSListener{CertFile: os.Getenv("TLS_CERT_FILE"), KeyFile: os.Getenv("TLS_KEY_FILE")}
 	if tl.CertFile != "" {
@@ -80,27 +78,51 @@ type flowView struct {
 	Recent      []flowrun.Result `json:"recent"`
 }
 
+func (g *gateway) view(f flowrun.Flow) flowView {
+	return flowView{
+		Name: f.Name(), Description: f.Description(), Path: f.Path(),
+		Markers: len(f.Markers().Markers), Recent: g.history.Recent(f.Name()),
+	}
+}
+
 func (g *gateway) views() []flowView {
 	var out []flowView
 	for _, f := range g.flows {
-		out = append(out, flowView{
-			Name: f.Name(), Description: f.Description(), Path: f.Path(),
-			Markers: len(f.Markers().Markers), Recent: g.history.Recent(f.Name()),
-		})
+		out = append(out, g.view(f))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
 
-func (g *gateway) index(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := g.page.Execute(w, g.views()); err != nil {
-		slog.Error("render", "err", err)
-	}
-}
-
 func (g *gateway) list(w http.ResponseWriter, _ *http.Request) {
 	httpx.JSON(w, http.StatusOK, g.views())
+}
+
+// declared describes what a flow sends without the values themselves: the
+// gateway's own responses are captured too, and a sensitive value listed here
+// would show up in clear next to the traffic that redacts it.
+type declared struct {
+	Kind   string `json:"kind"`
+	Expect string `json:"expect"`
+	What   string `json:"what"`
+}
+
+type flowDetail struct {
+	flowView
+	Declared []declared `json:"declared"`
+}
+
+func (g *gateway) detail(w http.ResponseWriter, r *http.Request) {
+	f, ok := g.flows[r.PathValue("name")]
+	if !ok {
+		httpx.Error(w, http.StatusNotFound, "no such flow")
+		return
+	}
+	d := flowDetail{flowView: g.view(f)}
+	for _, m := range f.Markers().Markers {
+		d.Declared = append(d.Declared, declared{Kind: string(m.Kind), Expect: string(m.Expect), What: m.What})
+	}
+	httpx.JSON(w, http.StatusOK, d)
 }
 
 func (g *gateway) run(w http.ResponseWriter, r *http.Request) {

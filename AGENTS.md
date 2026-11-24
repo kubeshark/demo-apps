@@ -49,7 +49,7 @@ change functional/corpus traffic, pacing, floors, transports or readiness.
 
 | Service | Port | Role |
 |---|---|---|
-| gateway | 8080 http | UI, `GET /api/flows`, `POST /api/flows/{name}/run?variant=ok|slow|error`; first hop of every flow |
+| gateway | 8080 http | UI, `GET /api/flows`, `GET /api/flows/{name}` (adds what each marker covers, never its value), `POST /api/flows/{name}/run?variant=ok|slow|error`; first hop of every flow |
 | runner | 8081 http readiness | calls the gateway on each flow's interval; config from ConfigMap, reloaded every 5s; ready after every configured loop succeeds |
 | catalog | 8080 http | redis cache in front of mysql |
 | inventory | 9090 grpc | stock and reservations in mongodb |
