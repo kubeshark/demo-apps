@@ -19,6 +19,9 @@ flows:
   identity:
     enabled: false
     interval: 1s
+  wallet:
+    enabled: false
+    interval: 1s
   telco:
     enabled: false
     interval: 1s

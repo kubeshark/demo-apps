@@ -4,3 +4,4 @@ keep	KSKEEP-WEBSOCKET-PAYLOAD-TICK	payload field of every pushed event frame
 keep	KSKEEP-WEBSOCKET-MISSING-GHOST	channel requested on the error path, in the subscribe frame and the close reason
 keep	KSKEEP-WEBSOCKET-REASON-UNKNOWN	close reason sent with status 1008 on the error path
 keep	KSKEEP-WEBSOCKET-USER-DAVE	X-Demo-User header on the upgrade request
+redact	KSKEEP-WEBSOCKET-TOKEN-DAVE	json token in the subscribe text frame
