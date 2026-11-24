@@ -1,0 +1,50 @@
+keep	KSKEEP-WALLET-USER-ERIN	user id: sign-in body and response, X-Demo-User header on every request, redis session key
+redact	KSKEEP-WALLET-PASSWORD-ERIN	json password in the sign-in body
+redact	KSKEEP-WALLET-SETCOOKIE-ERIN	session cookie value in the Set-Cookie header of the sign-in response
+keep	KSKEEP-WALLET-COOKIEPATH-ACCOUNT	Path attribute of that Set-Cookie: cookie attributes survive, only the value is redacted
+redact	KSKEEP-WALLET-RESPAUTHTOKEN-ERIN	X-Auth-Token header of the sign-in response
+redact	KSKEEP-WALLET-ACCESSTOKEN-ERIN	json access_token in the sign-in response
+redact	KSKEEP-WALLET-REFRESHTOKEN-ERIN	json refresh_token in the sign-in response
+keep	KSKEEP-WALLET-TRACE-ERIN	X-Trace-Id header of every wallet response
+redact	KSKEEP-WALLET-REDISAUTH-SERVICE	password of the wallet ACL user: redis AUTH on every sign-in
+redact	KSKEEP-WALLET-BEARER-ERIN	Authorization: Bearer header of the profile request
+redact	KSKEEP-WALLET-APIKEY-ERIN	X-API-Key header of the profile request
+redact	KSKEEP-WALLET-XAUTHTOKEN-ERIN	X-Auth-Token header of the profile request
+redact	KSKEEP-WALLET-SESSION-ERIN	session cookie value in the Cookie header of the profile request
+redact	KSKEEP-WALLET-COOKIETHEME-DARK	value of the unlisted theme cookie in the same Cookie header: every cookie value is redacted
+redact	KSKEEP-WALLET-JWTSUB-ERIN	sub claim of a JWT in the unlisted X-Client-Assertion header: found by decoding the token, which redaction replaces whole
+redact	KSKEEP-WALLET-QUERYTOKEN-ERIN	query parameter token of the profile request
+keep	KSKEEP-WALLET-VIEW-SUMMARY	query parameter view of the profile request
+keep	KSKEEP-WALLET-NAME-ERIN	json display_name in the profile response
+redact	KSKEEP-WALLET-SSN-ERIN	json ssn in the profile response
+keep	KSKEEP-WALLET-PINNED-CARD	json key pinned in the profile response: keys match exactly, never by substring (pin)
+keep	KSKEEP-WALLET-TOKENIZER-V2	json key tokenizer in the profile response: no substring match on token
+redact	KSKEEP-WALLET-PROXYAUTH-ERIN	Proxy-Authorization header of the card payment
+keep	KSKEEP-WALLET-REQUESTID-550e8400-e29b-41d4-a716-446655440000	X-Request-Id header and json request_id of the card payment: a UUID is not a card number
+keep	KSKEEP-WALLET-DESCRIPTION-COFFEE	json description of the card payment
+redact	KSKEEP-WALLET-CARDNUMBER-ERIN	json card_number of the card payment
+redact	KSKEEP-WALLET-CVV-ERIN	json cvv of the card payment
+redact	KSKEEP-WALLET-PIN-ERIN	json pin of the card payment
+redact	KSKEEP-WALLET-PAN-4539827163548298	card number under the unlisted json key payment_ref: found by the card number detector
+masked	KSKEEP-WALLET-PAN-************8298	payment_ref with redaction on: every digit but the last four masked
+redact	KSKEEP-WALLET-PANSPACED-4539 8271 6354 8298	space-separated card number under the unlisted json key payment_ref_spaced
+masked	KSKEEP-WALLET-PANSPACED-**** **** **** 8298	payment_ref_spaced with redaction on: separators and the last four digits kept
+keep	KSKEEP-WALLET-NOTPAN-9999888877776668	json reference: 16 Luhn-valid digits outside every card issuer range are not a card number
+keep	KSKEEP-WALLET-NOTJWT-PLAIN	json note: middle segment of a three-part eyJ token that does not decode to json, so not a JWT
+redact	KSKEEP-WALLET-APIKEYCAMEL-ERIN	json apiKey: key names match without case, hyphens or underscores
+redact	KSKEEP-WALLET-XAPIKEY-ERIN	json x-api-key, same normalization
+redact	KSKEEP-WALLET-PASSWD-ERIN	json passwd
+redact	KSKEEP-WALLET-SECRET-ERIN	json secret
+redact	KSKEEP-WALLET-CLIENTSECRET-ERIN	json client_secret
+redact	KSKEEP-WALLET-PRIVATEKEY-ERIN	json private_key
+redact	KSKEEP-WALLET-NESTED-ERIN	json password two objects deep, billing.credentials.password
+redact	KSKEEP-WALLET-ESCAPEDKEY-ERIN	json key token written with a unicode escape, matched after decoding
+keep	KSKEEP-WALLET-RECEIPT-COFFEE	json receipt in the card payment response
+redact	KSKEEP-WALLET-FORMPASSWORD-ERIN	form field password of the urlencoded payment; the base entry carries no urlencoded body	wire
+redact	KSKEEP-WALLET-FORMCARD-ERIN	form field card_number of the urlencoded payment, same carrier	wire
+keep	KSKEEP-WALLET-FORMDESCRIPTION-TEA	form field description of the urlencoded payment, same carrier	wire
+redact	KSKEEP-WALLET-REVOKEDKEY-MALLORY	X-API-Key header of the profile request on the error path, answered 401
+keep	KSKEEP-WALLET-STATEMENT-UNDER	head of the 1 MiB statement upload on the slow path, inside the default 2Mi scan budget: scanned and kept
+redact	KSKEEP-WALLET-STATEMENT-OVER	not sensitive: head of the 3 MiB statement upload on the slow path, past the default 2Mi scan budget, so redaction replaces that body whole
+redact	KSKEEP-WALLET-STATEMENTPASSWORD-UNDER	json password at the end of the 1 MiB statement, past the inline body preview	wire
+redact	KSKEEP-WALLET-STATEMENTPASSWORD-OVER	json password at the end of the 3 MiB statement, past the inline body preview	wire

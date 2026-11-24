@@ -47,7 +47,7 @@ func (f *Flow) Markers() *markers.Set {
 func (f *Flow) Run(ctx context.Context, v flowrun.Variant) ([]flowrun.Step, error) {
 	channels := Markers.Field("CHANNEL")
 	channel := channels[int(f.n.Add(1)-1)%len(channels)]
-	sub := Message{Type: "subscribe", Channel: channel}
+	sub := Message{Type: "subscribe", Channel: channel, Token: Markers.One("TOKEN")}
 	switch v {
 	case flowrun.Slow:
 		sub.DelayMs = slowDelayMs

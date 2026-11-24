@@ -39,16 +39,17 @@ func TestFieldSelection(t *testing.T) {
 		"keep\tKSKEEP-CATALOG-SKU-WOOL\tsku",
 		"",
 		"keep\tKSKEEP-CATALOG-SKU-SILK\tsku",
-		"vanish\tKSKEEP-CATALOG-TOKEN-1\ttoken",
+		"redact\tKSKEEP-CATALOG-CARD-4539827163548298\tcard",
+		"masked\tKSKEEP-CATALOG-CARD-************8298\tcard after redaction",
 	}, "\n"))
 	if got := s.Field("SKU"); len(got) != 2 || got[0] != "KSKEEP-CATALOG-SKU-WOOL" {
 		t.Fatalf("Field(SKU) = %v", got)
 	}
-	if got := s.One("TOKEN"); got != "KSKEEP-CATALOG-TOKEN-1" {
-		t.Fatalf("One(TOKEN) = %q", got)
+	if got := s.One("CARD"); got != "KSKEEP-CATALOG-CARD-4539827163548298" {
+		t.Fatalf("One(CARD) = %q, the masked form is never sent", got)
 	}
-	if s.Markers[2].Kind != Vanish {
-		t.Fatalf("kind = %q", s.Markers[2].Kind)
+	if s.Markers[2].Kind != Redact || s.Markers[3].Kind != Masked {
+		t.Fatalf("kinds = %q, %q", s.Markers[2].Kind, s.Markers[3].Kind)
 	}
 	defer func() {
 		if recover() == nil {

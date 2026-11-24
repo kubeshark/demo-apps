@@ -33,7 +33,7 @@ readiness:
   traffic-success: Existing traffic loop completed a successful HTTP request, Redis operation sequence, Kafka three-message delivery batch or database marker batch since container startup
   language-clients: Existing loop completed both HTTPS flow and database or gRPC operation successfully in the same iteration since container startup
 corpus:
-  flows: [catalog, inventory, orders, graphql, websocket, identity, telco, netprobe]
+  flows: [catalog, inventory, orders, graphql, websocket, identity, wallet, telco, netprobe]
   flowInterval: 1s
   clientInterval: 1s
   valuesPath: values.yaml

@@ -1,7 +1,7 @@
 // Package markers reads a flow's declared payload content: the values a flow
-// puts on the wire and whether each must survive capture ("keep") or must not
-// ("vanish"). The same file is read by the service that sends the value and by
-// any checker that asserts on what was captured, so neither can drift.
+// puts on the wire and what capture must do with each. The same file is read
+// by the service that sends the value and by any checker that asserts on what
+// was captured, so neither can drift.
 package markers
 
 import (
@@ -13,8 +13,15 @@ import (
 type Kind string
 
 const (
-	Keep   Kind = "keep"
-	Vanish Kind = "vanish"
+	// Keep must survive capture, with or without sensitive-data redaction.
+	Keep Kind = "keep"
+	// Redact must survive capture without redaction and must not survive it
+	// with redaction on.
+	Redact Kind = "redact"
+	// Masked is not sent: it is the form a redact value takes with redaction
+	// on (a card number keeping its last four digits), so a checker can
+	// assert the masking positively rather than only the absence.
+	Masked Kind = "masked"
 )
 
 // Expect says where a checker can observe a marker.
@@ -69,7 +76,7 @@ func Parse(flow, text string) (*Set, error) {
 			return nil, fmt.Errorf("markers %s line %d: want 3 or 4 tab-separated columns, got %d", flow, line, len(cols))
 		}
 		kind := Kind(cols[0])
-		if kind != Keep && kind != Vanish {
+		if kind != Keep && kind != Redact && kind != Masked {
 			return nil, fmt.Errorf("markers %s line %d: unknown kind %q", flow, line, cols[0])
 		}
 		if cols[1] == "" || cols[2] == "" {
@@ -105,11 +112,13 @@ func MustParse(flow, text string) *Set {
 	return s
 }
 
-// Field returns every value whose field segment equals name, in file order.
+// Field returns every value with the given field segment that the flow sends,
+// in file order. Masked markers are expected output, never sent, so they are
+// not returned.
 func (s *Set) Field(name string) []string {
 	var out []string
 	for _, m := range s.Markers {
-		if m.Field() == name {
+		if m.Kind != Masked && m.Field() == name {
 			out = append(out, m.Value)
 		}
 	}
