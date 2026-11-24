@@ -101,7 +101,7 @@ For repeatable OCI runs, pin the exact dev chart version and record the download
 (the archive checksum, not the OCI manifest digest). Replace `<sha7>` with the published commit:
 
 ```bash
-VERSION='0.2.1-functional-workloads.g<sha7>'
+VERSION='0.3.1-functional-workloads.g<sha7>'
 CHART=oci://public.ecr.aws/l3y1d4r0/kubeshark/charts/demo-apps
 tmp=$(mktemp -d)
 helm pull "$CHART" --version "$VERSION" --destination "$tmp"
@@ -350,11 +350,11 @@ gh variable set AWS_ROLE_ARN --body "$(terraform output -raw role_arn)"
 
 From then on every branch push publishes images tagged `<sanitized-branch>-<sha7>` and, only
 after both Go and language-client images succeed, an OCI chart version
-`0.2.1-<sanitized-branch>.g<sha7>` with the image tag as `appVersion`. Branch names are lowercased,
+`0.3.1-<sanitized-branch>.g<sha7>` with the image tag as `appVersion`. Branch names are lowercased,
 characters outside `a-z`, `0-9` and `-` become `-`, repeated hyphens collapse, and the result is
 truncated to 100 characters and stripped of edge hyphens. An empty name becomes `dev`; a purely
 numeric name gets a `branch-` prefix. Thus `functional-workloads` publishes
-`0.2.1-functional-workloads.g<sha7>` with `appVersion: functional-workloads-<sha7>`.
+`0.3.1-functional-workloads.g<sha7>` with `appVersion: functional-workloads-<sha7>`.
 The `g` keeps the prerelease identifier valid even when the SHA prefix is all digits with a leading
 zero. Use the exact version: prereleases are not selected by Helm's default stable-version lookup.
 
