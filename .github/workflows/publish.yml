@@ -50,7 +50,7 @@ jobs:
             branch=${branch:-dev}
             if [[ "$branch" =~ ^[0-9]+$ ]]; then branch="branch-$branch"; fi
             echo "tag=$branch-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-            echo "chart-version=0.2.1-$branch.g${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "chart-version=0.3.1-$branch.g${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
       - name: Go images
         env:
