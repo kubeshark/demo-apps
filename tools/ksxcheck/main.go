@@ -14,6 +14,9 @@
 //
 // It fails as well when the stream carried no entry or no expected marker at
 // all, since a blind checker would otherwise report everything as clean.
+//
+// With -filters it checks the Kubeshark filters each flow page shows instead:
+// every filter must match an entry once the flows ran.
 package main
 
 import (
@@ -53,9 +56,16 @@ func main() {
 	grace := flag.Duration("grace", 45*time.Second, "how long to keep streaming after the last run")
 	timeout := flag.Duration("timeout", 10*time.Minute, "overall deadline")
 	redaction := flag.Bool("redaction", false, "Kubeshark runs with sensitive-data redaction on (tap.redaction.realtime.enabled)")
+	filters := flag.Bool("filters", false, "check each flow's Kubeshark filters instead of its markers: every filter must match an entry once the flows ran")
 	flag.Parse()
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	code := run(ctx, config{*hub, *gateway, *namespace, *glob, *rounds, *clients, *grace, *redaction})
+	cfg := config{*hub, *gateway, *namespace, *glob, *rounds, *clients, *grace, *redaction}
+	var code int
+	if *filters {
+		code = runFilters(ctx, cfg)
+	} else {
+		code = run(ctx, cfg)
+	}
 	cancel()
 	os.Exit(code)
 }
@@ -100,7 +110,9 @@ func run(ctx context.Context, cfg config) int {
 	defer stopStream()
 	counter := newCounter(values)
 	streamErr := make(chan error, 1)
-	go func() { streamErr <- stream(streamCtx, cfg.hub, cfg.namespace, counter) }()
+	go func() {
+		streamErr <- stream(streamCtx, cfg.hub, fmt.Sprintf("%q in namespaces", cfg.namespace), counter.add)
+	}()
 
 	// Give the subscription a moment to attach before generating traffic.
 	select {
@@ -274,9 +286,10 @@ func (c *counter) add(entry []byte) {
 }
 
 // stream subscribes to the hub's UIEventService over the Connect protocol with
-// the JSON codec, so no generated client is needed.
-func stream(ctx context.Context, hub, namespace string, c *counter) error {
-	msg, _ := json.Marshal(map[string]string{"filter": fmt.Sprintf("%q in namespaces", namespace)})
+// the JSON codec, so no generated client is needed, and hands every streamed
+// entry to add.
+func stream(ctx context.Context, hub, filter string, add func([]byte)) error {
+	msg, _ := json.Marshal(map[string]string{"filter": filter})
 	var body bytes.Buffer
 	body.WriteByte(0)
 	_ = binary.Write(&body, binary.BigEndian, uint32(len(msg)))
@@ -333,10 +346,10 @@ func stream(ctx context.Context, hub, namespace string, c *counter) error {
 			continue
 		}
 		if len(ev.Entry) > 0 {
-			c.add(ev.Entry)
+			add(ev.Entry)
 		}
 		for _, e := range ev.Entries.Entries {
-			c.add(e)
+			add(e)
 		}
 	}
 }

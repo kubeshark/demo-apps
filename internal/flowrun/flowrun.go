@@ -58,7 +58,21 @@ type Flow interface {
 	Description() string
 	Path() string
 	Markers() *markers.Set
+	Filters() []Filter
 	Run(ctx context.Context, v Variant) ([]Step, error)
+}
+
+// Filter is a Kubeshark KFL query that shows what a run of the flow in one
+// variant produced. KFL may name {namespace} and {release}, which the gateway
+// replaces with where the chart installed it; services are named
+// {release}-<service>.
+type Filter struct {
+	Variant Variant `json:"variant"`
+	Title   string  `json:"title"`
+	KFL     string  `json:"kfl"`
+	// Redaction marks a filter that matches only while Kubeshark redacts
+	// sensitive data.
+	Redaction bool `json:"redaction,omitempty"`
 }
 
 // Trace collects steps during a run.
@@ -100,10 +114,12 @@ func (h *History) Add(r Result) {
 	h.runs[r.Flow] = rs
 }
 
+// Recent returns the flow's latest results, newest first; empty, never nil,
+// so the API reports a flow that has not run as [] rather than null.
 func (h *History) Recent(flow string) []Result {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return append([]Result(nil), h.runs[flow]...)
+	return append([]Result{}, h.runs[flow]...)
 }
 
 // Registration ties a flow to the environment variable that carries the

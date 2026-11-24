@@ -330,6 +330,9 @@ With Kubeshark's sensitive-data redaction on, add `-redaction`: `redact` markers
 absent and `masked` markers present. Run it both ways, as described under "Sensitive-data
 redaction".
 
+Each flow page in the UI lists Kubeshark filters for the run it shows. `-filters` checks those
+instead of the markers: every filter must match an entry once the flows ran.
+
 To pull the third-party servers from their upstream registries instead of the mirror, add
 `-f deploy/chart/ci/upstream-values.yaml`.
 

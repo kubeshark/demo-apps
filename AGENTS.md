@@ -49,7 +49,7 @@ change functional/corpus traffic, pacing, floors, transports or readiness.
 
 | Service | Port | Role |
 |---|---|---|
-| gateway | 8080 http | UI, `GET /api/flows`, `POST /api/flows/{name}/run?variant=ok|slow|error`; first hop of every flow |
+| gateway | 8080 http | UI, `GET /api/flows`, `GET /api/flows/{name}` (adds what each marker covers, never its value), `POST /api/flows/{name}/run?variant=ok|slow|error`; first hop of every flow |
 | runner | 8081 http readiness | calls the gateway on each flow's interval; config from ConfigMap, reloaded every 5s; ready after every configured loop succeeds |
 | catalog | 8080 http | redis cache in front of mysql |
 | inventory | 9090 grpc | stock and reservations in mongodb |
@@ -153,6 +153,15 @@ still `stream`, and the checker gives it several runs.
 Marker values follow `KSKEEP-<FLOW>-<FIELD>-<REST>`; code selects values by FIELD
 (`Markers.Field("SKU")`, `Markers.One("USER")`), never by literal. Seed data is written on service
 start, idempotently, from the markers.
+
+Each flow also declares Kubeshark filters per variant (`filters.go`, `Flow.Filters`), shown on its
+page in the UI. KFL there may name `{namespace}` and `{release}`, which the gateway fills from
+`POD_NAMESPACE` and `RELEASE_NAME`. Every filter must match what its flow produces:
+`ksxcheck -filters` (plus `-redaction` for the filters marked `Redaction`) checks that against a
+live install. Field values are what the dissectors emit, not what the KFL docs suggest: LDAP binds
+are `ldap_type == "Bind Request"`, WebSocket closes `ws_opcode == "Close"`, `radius_code_name`
+prefers the request so an Access-Reject never shows there, and the wallet's slow and error
+entries do not always resolve `dst.service.name`, so those filters select by path.
 
 The wallet flow exists for sensitive-data redaction: each carrier the redaction rules name (request
 and response headers, cookies, query, flat, nested and escaped json keys, form fields, a JWT under
