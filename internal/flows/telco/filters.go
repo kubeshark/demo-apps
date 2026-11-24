@@ -8,7 +8,7 @@ func (f *Flow) Filters() []flowrun.Filter {
 		{Variant: flowrun.OK, Title: "Gateway to telco", KFL: `http && dst.service.name == "{release}-telco"`},
 		{Variant: flowrun.OK, Title: "Diameter exchanges", KFL: `diameter && "{namespace}" in namespaces`},
 		{Variant: flowrun.OK, Title: "SCTP associations", KFL: `sctp && "{namespace}" in namespaces`},
-		{Variant: flowrun.Slow, Title: "The held answer", KFL: `diameter && "{namespace}" in namespaces && elapsed_time > 1500000`},
+		{Variant: flowrun.Slow, Title: "Charges slowed by the held answer", KFL: `http && dst.service.name == "{release}-telco" && elapsed_time > 1500000`},
 		{Variant: flowrun.Error, Title: "Telco answering 502", KFL: `http && dst.service.name == "{release}-telco" && status_code == 502`},
 	}
 }

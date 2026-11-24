@@ -154,6 +154,15 @@ Marker values follow `KSKEEP-<FLOW>-<FIELD>-<REST>`; code selects values by FIEL
 (`Markers.Field("SKU")`, `Markers.One("USER")`), never by literal. Seed data is written on service
 start, idempotently, from the markers.
 
+Each flow also declares Kubeshark filters per variant (`filters.go`, `Flow.Filters`), shown on its
+page in the UI. KFL there may name `{namespace}` and `{release}`, which the gateway fills from
+`POD_NAMESPACE` and `RELEASE_NAME`. Every filter must match what its flow produces:
+`ksxcheck -filters` (plus `-redaction` for the filters marked `Redaction`) checks that against a
+live install. Field values are what the dissectors emit, not what the KFL docs suggest: LDAP binds
+are `ldap_type == "Bind Request"`, WebSocket closes `ws_opcode == "Close"`, `radius_code_name`
+prefers the request so an Access-Reject never shows there, and the wallet's slow and error
+entries do not always resolve `dst.service.name`, so those filters select by path.
+
 The wallet flow exists for sensitive-data redaction: each carrier the redaction rules name (request
 and response headers, cookies, query, flat, nested and escaped json keys, form fields, a JWT under
 an unlisted header, card numbers under unlisted keys, the redis AUTH) gets its own marker, next to
