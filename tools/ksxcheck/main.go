@@ -1,11 +1,16 @@
 // ksxcheck asserts that every declared marker of the enabled flows reaches an
-// entry the Kubeshark hub streams. It subscribes to the hub's UI stream for the
-// namespace, runs every enabled flow in every variant through the gateway, and
-// then compares what it saw with the markers files:
+// entry the Kubeshark hub streams, or does not when it must not. It subscribes
+// to the hub's UI stream for the namespace, runs every enabled flow in every
+// variant through the gateway, and then compares what it saw with the markers
+// files:
 //
 //	keep   + stream (default)  must be seen, else MISSING
-//	keep   + wire              reported only: sent, but no dissector streams it
-//	vanish                     must not be seen, else LEAK
+//	redact + stream            without -redaction: must be seen, else MISSING
+//	                           with -redaction: must not be seen, else LEAK
+//	masked                     with -redaction: must be seen, else MISSING;
+//	                           without it: never produced, not checked
+//	any    + wire              reported only: sent, but no dissector streams it;
+//	                           a redact marker seen with -redaction is still a LEAK
 //
 // It fails as well when the stream carried no entry or no expected marker at
 // all, since a blind checker would otherwise report everything as clean.
@@ -47,9 +52,10 @@ func main() {
 	clients := flag.Bool("clients", true, "check clients.tsv (the chart's TLS clients are enabled)")
 	grace := flag.Duration("grace", 45*time.Second, "how long to keep streaming after the last run")
 	timeout := flag.Duration("timeout", 10*time.Minute, "overall deadline")
+	redaction := flag.Bool("redaction", false, "Kubeshark runs with sensitive-data redaction on (tap.redaction.realtime.enabled)")
 	flag.Parse()
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	code := run(ctx, config{*hub, *gateway, *namespace, *glob, *rounds, *clients, *grace})
+	code := run(ctx, config{*hub, *gateway, *namespace, *glob, *rounds, *clients, *grace, *redaction})
 	cancel()
 	os.Exit(code)
 }
@@ -59,6 +65,7 @@ type config struct {
 	rounds                        int
 	clients                       bool
 	grace                         time.Duration
+	redaction                     bool
 }
 
 type tracked struct {
@@ -114,7 +121,7 @@ func run(ctx context.Context, cfg config) int {
 		fmt.Fprintln(os.Stderr, "hub stream:", err)
 		return 2
 	}
-	return report(all, counter, failed)
+	return report(all, counter, failed, cfg.redaction)
 }
 
 func enabledFlows(ctx context.Context, gateway string) ([]string, error) {
@@ -233,14 +240,24 @@ func newCounter(values []string) *counter {
 
 // Entries arrive as protobuf JSON, where bytes fields (headers, bodies, URLs,
 // query text) are base64. Every base64-looking token is decoded and searched
-// along with the JSON itself.
-var b64 = regexp.MustCompile(`[A-Za-z0-9+/]{8,}={0,2}`)
+// along with the JSON itself, and so are the claims of every JWT found in
+// either, since a JWT carries its claims base64url-encoded.
+var (
+	b64 = regexp.MustCompile(`[A-Za-z0-9+/]{8,}={0,2}`)
+	jwt = regexp.MustCompile(`eyJ[A-Za-z0-9_-]*\.(eyJ[A-Za-z0-9_-]*)\.[A-Za-z0-9_-]*`)
+)
 
 func (c *counter) add(entry []byte) {
 	var hay bytes.Buffer
 	hay.Write(entry)
 	for _, tok := range b64.FindAll(entry, -1) {
 		if dec, err := base64.StdEncoding.DecodeString(string(tok)); err == nil {
+			hay.WriteByte('\n')
+			hay.Write(dec)
+		}
+	}
+	for _, m := range jwt.FindAllSubmatch(hay.Bytes(), -1) {
+		if dec, err := base64.RawURLEncoding.DecodeString(string(m[1])); err == nil {
 			hay.WriteByte('\n')
 			hay.Write(dec)
 		}
@@ -324,19 +341,21 @@ func stream(ctx context.Context, hub, namespace string, c *counter) error {
 	}
 }
 
-func report(all []tracked, c *counter, failedRuns int) int {
+func report(all []tracked, c *counter, failedRuns int, redaction bool) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	fmt.Printf("streamed %d entries\n\n%-8s %5s  %-10s %-40s %s\n", c.entries, "RESULT", "HITS", "SET", "MARKER", "WHAT")
+	fmt.Printf("streamed %d entries, redaction %s\n\n%-8s %5s  %-10s %-40s %s\n", c.entries, onOff(redaction), "RESULT", "HITS", "SET", "MARKER", "WHAT")
 	bad, seenExpected := 0, 0
 	for _, m := range all {
 		n := c.hits[m.Value]
 		var result string
 		switch {
-		case m.Kind == markers.Vanish && n > 0:
+		case m.Kind == markers.Redact && redaction && n > 0:
 			result, bad = "LEAK", bad+1
-		case m.Kind == markers.Vanish:
-			result = "clean"
+		case m.Kind == markers.Redact && redaction:
+			result = "redacted"
+		case m.Kind == markers.Masked && !redaction:
+			result = "skip"
 		case m.Expect == markers.Wire:
 			result = "wire"
 		case n > 0:
@@ -355,6 +374,13 @@ func report(all []tracked, c *counter, failedRuns int) int {
 		fmt.Printf("FAIL: %d marker problems, %d failed flow runs\n", bad, failedRuns)
 		return 1
 	}
-	fmt.Println("PASS: every stream marker seen, no leaks; wire markers are sent but not streamed by design")
+	fmt.Println("PASS: no marker missing, none leaked; wire markers are sent but not streamed by design")
 	return 0
+}
+
+func onOff(b bool) string {
+	if b {
+		return "on"
+	}
+	return "off"
 }

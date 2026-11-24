@@ -58,6 +58,7 @@ change functional/corpus traffic, pacing, floors, transports or readiness.
 | graphql | 8080 http | GraphQL API over JSON in front of postgresql |
 | live | 8080 http/ws | WebSocket session: subscribe, server pushes, ping, unsubscribe |
 | identity | 8080 http | ldap bind/search/modify, then radius access and accounting |
+| wallet | 8080 http | sign-in, profile, card and form payments, statement uploads; redis AUTH as its own ACL user on every sign-in |
 | telco | 8080 http | diameter client over tcp and sctp, sctp echo client |
 | telco-server | 3868 tcp+sctp diameter, 3869 sctp echo | diameter server and sctp echo, built here |
 | netprobe | 8080 http | dns against the demo zone, icmp echo (NET_RAW), https egress |
@@ -118,9 +119,16 @@ Both publish workflows are skipped until the repository variable `AWS_ROLE_ARN` 
 ## Flows
 
 A flow is a directory under `internal/flows/<name>` with a `markers.tsv`
-(`kind<TAB>value<TAB>what[<TAB>expect]`, kinds `keep` and `vanish`). The service embeds the file and
-puts every value on the wire; `tools/ksxcheck` reads the same files. Enabling `flows.<name>.enabled`
-in the chart renders the services and servers that flow needs.
+(`kind<TAB>value<TAB>what[<TAB>expect]`). The service embeds the file and puts every value on the
+wire; `tools/ksxcheck` reads the same files. Enabling `flows.<name>.enabled` in the chart renders
+the services and servers that flow needs.
+
+`kind` says what capture must do with a value. `keep` must survive, with or without Kubeshark's
+sensitive-data redaction. `redact` must survive without redaction and must not survive with it
+(`ksxcheck -redaction`). `masked` is never sent: it is the form a `redact` value takes with
+redaction on (a card number keeping its last four digits), so the masking is asserted positively;
+`Markers.Field` skips it. A value redaction would remove is `redact` in every flow, not only in
+wallet, or a redaction-on check reads it as missing.
 
 `expect` says where a checker can observe a marker: `stream` (the default) means it reaches an
 entry the hub streams and the checker fails without it; `wire` means it is sent but no dissector
@@ -137,6 +145,7 @@ still `stream`, and the checker gives it several runs.
 | graphql | gateway -> graphql (http, graphql) -> postgresql | postgresql (user/password, sslmode=disable) | query selecting a field the Book type lacks, graphql errors array, http 400 | `SELECT pg_sleep(2)` in the books resolver |
 | websocket | gateway -> live (websocket) | none | subscribe to the MISSING channel, server closes 1008 with the REASON marker | server delays its first push by 2s |
 | identity | gateway -> identity (http) -> openldap (ldap) + freeradius (radius) | openldap (cn=admin bind for seeding, users bind with their own password; ACL replaced at bootstrap so users read the tree and write their own entry), freeradius (shared secret, Message-Authenticator required, users file from the markers) | wrong password: ldap invalidCredentials 49 and radius Access-Reject, http 401 | 2s pause in identity between the ldap and radius hops |
+| wallet | gateway -> wallet (http) -> redis | redis (the default user creates the `wallet` ACL user with a hashed password; every sign-in opens a new connection with `AUTH wallet <REDISAUTH>`) | profile with the REVOKEDKEY api key, http 401 | 1 MiB and 3 MiB json statement uploads, either side of the default 2Mi redaction scan budget |
 | telco | gateway -> telco (http) -> telco-server (diameter over tcp, diameter over sctp, sctp echo) | telco-server (built here; CER from a realm other than demo.local is answered 3010) | CCR with the BADCONTEXT Service-Context-Id, CCA Result-Code 5012, http 502 | server holds the CCA of an UPDATE_REQUEST for 2s |
 | netprobe | gateway -> netprobe (http) -> coredns (dns A, AAAA, SRV, TXT, NXDOMAIN), icmp echo, https egress | coredns (authoritative demo zone generated from the markers) | NXDOMAIN lookup plus an egress GET expecting 404, http 502 | 5 icmp echoes at 500ms |
 | ledger | gateway -> ledger (http) -> mssql | mssql (sa password, encrypt=disable); off by default, no TDS dissector yet so it shows as tcp | zero amount, CHECK constraint 547, http 500 | `WAITFOR DELAY '00:00:02'` |
@@ -144,6 +153,15 @@ still `stream`, and the checker gives it several runs.
 Marker values follow `KSKEEP-<FLOW>-<FIELD>-<REST>`; code selects values by FIELD
 (`Markers.Field("SKU")`, `Markers.One("USER")`), never by literal. Seed data is written on service
 start, idempotently, from the markers.
+
+The wallet flow exists for sensitive-data redaction: each carrier the redaction rules name (request
+and response headers, cookies, query, flat, nested and escaped json keys, form fields, a JWT under
+an unlisted header, card numbers under unlisted keys, the redis AUTH) gets its own marker, next to
+look-alikes that must survive (`pinned`, `tokenizer`, a UUID, a Luhn-valid number outside every
+issuer range, an `eyJ` token that is not a JWT, cookie attributes). Step details and errors never
+echo a request or response body, because the gateway API returns them and an echoed secret would
+read as a leak. The card payment body must stay under the 2048-byte inline body preview
+(`flow_test.go`), or its markers stop reaching the stream.
 
 ## Dissector constraints the drivers respect
 

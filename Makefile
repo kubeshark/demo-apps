@@ -1,4 +1,4 @@
-SERVICES := gateway runner catalog inventory orders notifier graphql live identity telco telco-server netprobe ledger
+SERVICES := gateway runner catalog inventory orders notifier graphql live identity wallet telco telco-server netprobe ledger
 CLIENTS := java python node
 CHART := deploy/chart
 MARKERS := $(wildcard internal/flows/*/markers.tsv)

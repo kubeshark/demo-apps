@@ -11,5 +11,6 @@ import (
 	_ "github.com/kubeshark/demo-apps/internal/flows/netprobe"
 	_ "github.com/kubeshark/demo-apps/internal/flows/orders"
 	_ "github.com/kubeshark/demo-apps/internal/flows/telco"
+	_ "github.com/kubeshark/demo-apps/internal/flows/wallet"
 	_ "github.com/kubeshark/demo-apps/internal/flows/websocket"
 )

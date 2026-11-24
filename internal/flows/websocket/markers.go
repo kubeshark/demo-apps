@@ -23,6 +23,7 @@ type Message struct {
 	Type    string `json:"type"`
 	Channel string `json:"channel,omitempty"`
 	DelayMs int    `json:"delayMs,omitempty"`
+	Token   string `json:"token,omitempty"`
 }
 
 // Event is what the server pushes after a subscribe.

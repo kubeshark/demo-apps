@@ -27,6 +27,49 @@ in `cilium-config` and restart the agents; without it the TCP Diameter leg still
 netprobe pod needs the `NET_RAW` capability for ICMP. The ledger flow (MSSQL, 2 GiB) is off by
 default.
 
+## Sensitive-data redaction
+
+The wallet flow (`gateway -> wallet (http) -> redis`) carries the values Kubeshark's
+sensitive-data redaction removes, each next to a look-alike that must survive. One ok run signs a
+user in, reads the profile and pays twice:
+
+| Request | Sensitive | Must survive |
+|---|---|---|
+| `POST /session` | json `password`; response `Set-Cookie` value, `X-Auth-Token`, json `access_token` and `refresh_token`; redis `AUTH wallet <password>` | user id, cookie `Path`, `X-Trace-Id` |
+| `GET /profile?token=...&view=...` | `Authorization`, `X-API-Key`, `X-Auth-Token`, both `Cookie` values, a JWT in the unlisted `X-Client-Assertion`, query `token`; response json `ssn` | query `view`, json `display_name`, `pinned`, `tokenizer` |
+| `POST /payments` | `Proxy-Authorization`; json `card_number`, `cvv`, `pin`, `apiKey`, `x-api-key`, `passwd`, `secret`, `client_secret`, `private_key`, a nested `password`, a `token` key written as `\u0074oken`; card numbers under unlisted keys, masked to their last four digits | json `description`, a UUID request id, a Luhn-valid number outside every issuer range, an `eyJ` token that is not a JWT, response `receipt` |
+| `POST /payments/form` | form `password`, `card_number` | form `description` |
+
+The slow variant uploads a 1 MiB and a 3 MiB json statement, either side of the default 2Mi scan
+budget (`tap.redaction.maxScanSize`): the first is scanned, the second is replaced whole. The error
+variant calls the profile with a revoked API key and gets a 401. The identity flow's passwords
+(http login body and LDAP bind) and the websocket flow's subscribe `token` are redacted as well.
+
+To reproduce, install Kubeshark with the packaged values, open the demo UI and press Run on
+wallet, then look at the wallet requests in Kubeshark: every value above is in clear. Turn
+real-time redaction on and run it again:
+
+```bash
+helm upgrade --install kubeshark kubeshark/kubeshark -n default \
+  -f deploy/chart/files/contracts/kubeshark-values.yaml --set tap.redaction.realtime.enabled=true
+```
+
+The switch is a Helm value only, applied when the workers restart, and needs a Kubeshark release
+that has `tap.redaction`. The same requests now show `[REDACTED]` in each sensitive value,
+`************8298` and `**** **** **** 8298` for the card numbers, and every value in the "Must
+survive" column unchanged. `tap.redaction.snapshot.enabled` does the same for snapshot
+dissections.
+
+Not redacted by design, so still visible with redaction on: per-flow and raw packet captures,
+binary bodies, redis values other than `AUTH` arguments, and the LDAP add or modify that seeds the
+identity passwords when the identity service starts. Urlencoded form bodies and the far end of the
+statements are redacted but not carried in a streamed entry, so no stream checker can see them in
+either state.
+
+To assert all of it, run `tools/ksxcheck` (see Develop) once with redaction off and once with
+`-redaction` after turning it on. Run both: a value reported absent only proves something once
+the same value was seen without redaction.
+
 ## Functional-test reuse
 
 `deploy/chart/values-functional.yaml` is included in every chart archive. It reuses the same
@@ -282,6 +325,10 @@ kubectl -n default port-forward svc/kubeshark-hub 18899:80 &
 kubectl -n demo-apps port-forward svc/demo-apps-gateway 18080:80 &
 go run ./tools/ksxcheck -hub http://127.0.0.1:18899 -gateway http://127.0.0.1:18080
 ```
+
+With Kubeshark's sensitive-data redaction on, add `-redaction`: `redact` markers must then be
+absent and `masked` markers present. Run it both ways, as described under "Sensitive-data
+redaction".
 
 To pull the third-party servers from their upstream registries instead of the mirror, add
 `-f deploy/chart/ci/upstream-values.yaml`.

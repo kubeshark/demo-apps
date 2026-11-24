@@ -51,6 +51,12 @@ flows:
   identity:
     enabled: true
     interval: 10s
+  # gateway -> wallet (http) -> redis: sign-in, profile and card payments carrying the
+  # credentials, tokens and card numbers Kubeshark's sensitive-data redaction removes
+  # (tap.redaction.realtime.enabled). The slow variant uploads 1 MiB and 3 MiB statements.
+  wallet:
+    enabled: true
+    interval: 10s
   # gateway -> telco (http) -> diameter over tcp and over sctp, plain sctp echo
   telco:
     enabled: true
@@ -155,6 +161,10 @@ services:
       requests: {cpu: 20m, memory: 16Mi}
       limits: {cpu: 100m, memory: 64Mi}
   identity:
+    resources:
+      requests: {cpu: 50m, memory: 16Mi}
+      limits: {cpu: 250m, memory: 64Mi}
+  wallet:
     resources:
       requests: {cpu: 50m, memory: 16Mi}
       limits: {cpu: 250m, memory: 64Mi}
