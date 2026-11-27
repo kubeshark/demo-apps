@@ -1,0 +1,175 @@
+{{- if eq .Values.fixture.name "wallet-capture" }}
+{{- $labels := dict "demo-apps.kubeshark.co/fixture" .Values.fixture.name }}
+{{- $images := .Values.global.registry }}
+{{- with .Values.global.imagePrefix }}{{ $images = printf "%s/%s" $images . }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: http-capture-controller
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{ $labels | toJson }}
+data:
+  wallet_capture.py: |
+{{ .Files.Get "files/clients/wallet_capture.py" | indent 4 }}
+  wallet-markers.tsv: |
+{{ .Files.Get "files/markers/wallet.tsv" | indent 4 }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: http-capture-redis
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{ $labels | toJson }}
+stringData:
+  password: "demo-http-capture-redis-password"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-capture-wallet
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{ $labels | toJson }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: http-capture-wallet}
+  template:
+    metadata:
+      labels: {app: http-capture-wallet, demo-apps.kubeshark.co/fixture: wallet-capture}
+    spec:
+      nodeSelector: {kubernetes.io/os: linux}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels: {app: http-capture-client}
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: wallet
+        image: {{ printf "%s/wallet:v0.3.0@sha256:13d45c5913678687d3da7c6cf33e3f3ae8ab3dedf4fe81b9019ce4db2bbd098b" $images | quote }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        securityContext:
+          {{- include "demo-apps.securityContext" . | nindent 10 }}
+        env:
+        - {name: REDIS_ADDR, value: "127.0.0.1:6379"}
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef: {name: http-capture-redis, key: password}
+        ports:
+        - {name: http, containerPort: 8080}
+        readinessProbe:
+          httpGet: {path: /healthz, port: http}
+          periodSeconds: 2
+        resources:
+          requests: {cpu: 50m, memory: 32Mi}
+          limits: {memory: 128Mi}
+      - name: redis
+        image: {{ include "demo-apps.mirrorImage" (dict "root" . "image" .Values.servers.redis.image) }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        args: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)", "--save", ""]
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef: {name: http-capture-redis, key: password}
+        ports:
+        - {name: redis, containerPort: 6379}
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "REDISCLI_AUTH=\"$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"]
+          periodSeconds: 2
+        resources:
+          {{- toYaml .Values.servers.redis.resources | nindent 10 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-capture-wallet
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{ $labels | toJson }}
+spec:
+  selector: {app: http-capture-wallet}
+  ports:
+  - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-capture-client
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{ $labels | toJson }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: http-capture-client}
+  template:
+    metadata:
+      labels: {app: http-capture-client, demo-apps.kubeshark.co/fixture: wallet-capture}
+    spec:
+      nodeSelector: {kubernetes.io/os: linux}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels: {app: http-capture-wallet}
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: gateway
+        image: {{ printf "%s/gateway:v0.3.0@sha256:c13efbabb68bdfcf856b646e0661d344d2eae5fe7f822bca5b07f765dfc71d5d" $images | quote }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        securityContext:
+          {{- include "demo-apps.securityContext" . | nindent 10 }}
+        env:
+        - {name: WALLET_URL, value: "http://http-capture-wallet:8080"}
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef: {fieldPath: metadata.namespace}
+        - {name: RELEASE_NAME, value: {{ .Release.Name | quote }}}
+        ports:
+        - {name: gateway, containerPort: 8080}
+        readinessProbe:
+          httpGet: {path: /healthz, port: gateway}
+          periodSeconds: 2
+        resources:
+          requests: {cpu: 50m, memory: 32Mi}
+          limits: {memory: 128Mi}
+      - name: controller
+        image: {{ printf "%s/client-python:v0.3.0@sha256:d531b8826a530382d51884e6f45d0b91c90d18b53912c7a02e2ef69e360eb9d3" $images | quote }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        securityContext:
+          {{- include "demo-apps.securityContext" . | nindent 10 }}
+        command: ["python", "-u", "/scripts/wallet_capture.py"]
+        env:
+        - {name: WALLET_ADDRESS, value: "http-capture-wallet:8080"}
+        - {name: GATEWAY_ADDRESS, value: "127.0.0.1:8080"}
+        - {name: WALLET_MARKERS, value: "/scripts/wallet-markers.tsv"}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef: {fieldPath: metadata.name}
+        ports:
+        - {name: control, containerPort: 8081}
+        readinessProbe:
+          httpGet: {path: /readyz, port: control}
+          periodSeconds: 2
+          timeoutSeconds: 12
+        resources:
+          requests: {cpu: 50m, memory: 32Mi}
+          limits: {memory: 128Mi}
+        volumeMounts:
+        - {name: controller, mountPath: /scripts, readOnly: true}
+      volumes:
+      - name: controller
+        configMap: {name: http-capture-controller}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-capture-client
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{ $labels | toJson }}
+spec:
+  selector: {app: http-capture-client}
+  ports:
+  - {name: control, port: 8081, targetPort: control}
+{{- end }}

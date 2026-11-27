@@ -109,6 +109,16 @@ independent of generic mirror values. The plain fixtures retain private ECR repo
 require node pull credentials. Every fixture object carries `demo-apps.kubeshark.co/fixture`;
 the existing pod selectors and TLS ingress cluster identities are unchanged.
 
+`wallet-capture` is the controlled exception: its packaged Python controller reuses
+`client-python:v0.3.0`, with the real gateway and wallet also fixed at `v0.3.0`.
+Only separate health connections run before an explicit finite control request.
+No generic runner, sleeps or workload retries are allowed. Required cross-node
+anti-affinity separates client/gateway from wallet/Redis. Its ledger schema is packaged
+at `files/contracts/wallet-capture.schema.json`; scoped provider checks are
+`go test ./hack/chartcontract -run '^TestWalletCaptureFixture$' -count=1 -timeout=90s`.
+The Publish workflow's manual `chart_only=true` branch mode runs those checks and
+publishes only a development chart with existing images, never new images or a release.
+
 Publishing (`.github/workflows/publish.yml`): every branch push tags images
 `<sanitized-branch>-<sha7>` and, after images succeed, publishes chart version
 `0.3.1-<sanitized-branch>.g<sha7>` with that image tag as appVersion (sanitization in README).

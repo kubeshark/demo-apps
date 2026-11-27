@@ -292,6 +292,11 @@ func TestPackagedWorkloadContract(t *testing.T) {
 				args = append(args, "--set", "fixture.interval=2s")
 			}
 			docs := render(t, args...)
+			if name == "wallet-capture" {
+				// Its HTTP health readiness and controlled driver are exercised from
+				// packaged bytes by TestWalletCaptureFixture, not the shell-loop harness.
+				return
+			}
 			deployments, probes := 0, 0
 			for _, doc := range docs {
 				if doc.Kind != "Deployment" {

@@ -9,6 +9,11 @@
 {{- if or (include "demo-apps.anyFlow" .) .Values.tls.enabled .Values.clients.java.enabled .Values.clients.python.enabled .Values.clients.node.enabled .Values.gateway.ingress.enabled .Values.gateway.externalURL .Values.runner.http2 -}}
 {{- fail "fixture requires all generic flows, TLS, clients, ingress, externalURL and runner.http2 disabled; use values-functional.yaml" -}}
 {{- end -}}
+{{- if eq $fixture.name "wallet-capture" -}}
+{{- if and .Values.global.imageTag (ne .Values.global.imageTag "v0.3.0") -}}
+{{- fail "wallet-capture uses v0.3.0 application images; global.imageTag must be empty or v0.3.0" -}}
+{{- end -}}
+{{- end -}}
 {{- $markers := $capabilities.markerPrefix -}}
 {{- $counted := $capabilities.markerCount -}}
 {{- if $markers -}}

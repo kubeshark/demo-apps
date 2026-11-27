@@ -190,7 +190,8 @@ does not publish images/charts or authorize live runs, stable releases or baseli
 The chart packages the original plain and specialized TLS workloads used by perfshark. These are
 separate from the generic flows above: select exactly one `fixture.name` with the functional
 preset, in a fresh namespace. Selection rejects enabled generic flows, generic TLS, language
-clients, ingress, external gateway traffic and `runner.http2`; it never adds the demo gateway.
+clients, ingress, external gateway traffic and `runner.http2`. Only `wallet-capture` adds its
+own controlled gateway; no fixture enables the generic runner.
 
 ```bash
 helm install demo-apps deploy/chart -n tls-traefik --create-namespace \
@@ -222,6 +223,73 @@ The six profiles use digest-pinned original private ECR images under
 to pull these repositories; the chart does not provision registry credentials or substitute
 public images. The original `latest` tags on opaque clients remain descriptive, with the
 digest fixing the actual image.
+
+#### Controlled wallet capture
+
+`wallet-capture` packages a finite HTTP controller, the real wallet and gateway at
+digest-pinned `v0.3.0`, and digest-pinned Redis. It reuses digest-pinned `client-python:v0.3.0` for the packaged standard-library
+script; no application image rebuild is needed. It rejects intervals, marker settings and
+application image tags other than `v0.3.0`. Generic flows are disabled, so the generic runner
+is not rendered. Application images remain `v0.3.0` even in a branch-development chart.
+
+Install the digest-verified chart archive with its packaged `values-functional.yaml` and
+`--set fixture.name=wallet-capture`. The client pod (`app: http-capture-client`) contains
+the gateway and controller; the wallet pod (`app: http-capture-wallet`) also contains Redis.
+Both require pod anti-affinity against the other on `kubernetes.io/hostname`. At least two
+schedulable Linux nodes are required; a one-node install stays Pending rather than silently
+weakening the test. The verifier must also check actual node placement.
+
+The controller Service `http-capture-client:8081` accepts:
+
+```text
+GET  /readyz
+POST /run?mode=wallet&run=<unique-nonce>
+POST /run?mode=burst&run=<unique-nonce>
+```
+
+Readiness fails closed unless wallet and gateway `/healthz` both return HTTP 200 over
+dedicated connections. Only health requests run before a trigger, and those connections
+are not reused for workload traffic. No autonomous wallet runner exists. The gateway
+port is not exposed through a Service. Start capture subscriptions before triggering.
+
+Each control POST blocks until every response is validated. `wallet` invokes the real
+gateway `/api/flows/wallet/run?variant=slow`, then `variant=ok`, without sleeps or retries:
+1 MiB and 3 MiB statement uploads, sign-in, profile, card payment, then form payment.
+Its ledger requires the exact successful two-plus-four gateway step results and byte
+acceptance details. It does not invent ordinary request sizes or app response bodies that
+the existing gateway does not expose.
+
+`burst` sends an initial authenticated profile, then one 1 MiB and six 3 MiB statement
+uploads, each immediately followed by a profile: 15 exchanges, 19 MiB uploaded, one HTTP/1.1
+socket, no sleeps, rate limit or retries. A closed/replaced connection fails the run.
+Bodies and hashes are allocated before connecting and match `wallet.Statement` byte for
+byte. The JSON password is at the tail, beyond the inline preview. Every request carries
+`X-Perfshark-Run` and zero-based `X-Perfshark-Sequence`; profiles use the real demo API key
+and session cookie and must return the exact demo profile, not a 401 or arbitrary 200.
+
+Successful responses follow `files/contracts/wallet-capture.schema.json`: timestamps in
+Unix nanoseconds, ordered exchanges, exact upload sizes, SHA256 and accepted bytes, plus
+actual response bodies for `burst`. Ordinary wallet POST sizes are omitted, not reported
+as zero. One run may be active at a time (409 otherwise); nonces are 1-128 ASCII letters,
+digits, underscores or hyphens, starting with a letter or digit. A nonce is consumed even
+on failure and cannot be replayed during that controller process. Any app/connection
+validation failure returns 502 with an error and partial ledger, never successful capture
+evidence. This unauthenticated control interface and synthetic credentials are for isolated
+test namespaces only. The controller ledger proves application acceptance, not capture:
+Perfshark must independently verify both node views, connection continuity and full stored
+payloads, including redaction beyond previews.
+
+Scoped provider validation (Helm, Python 3 and the repository Go toolchain required):
+
+```bash
+go test ./hack/chartcontract -run '^TestWalletCaptureFixture$' -count=1 -timeout=90s
+```
+
+This packages and renders the chart, validates placement/images/readiness/invalid settings,
+runs isolated deterministic controller peers, and compares Python statement hashes to the
+real Go `wallet.Statement`. The tests reject wrong order/size/credentials, false gateway
+success, retry, reconnect and pacing. They do not replace live capture verification.
+
 
 The ten TLS profiles retain their original settings:
 
@@ -361,5 +429,25 @@ zero. Use the exact version: prereleases are not selected by Helm's default stab
 A `vX.Y.Z` tag still publishes images tagged `vX.Y.Z` and a chart version `X.Y.Z` with
 `appVersion: vX.Y.Z`. The Mirror workflow keeps `kubeshark/mirror/*` in step with the chart's
 pinned server digests (run it once by hand after the first apply).
+
+For chart-only wallet-capture development, the existing Publish workflow accepts
+`workflow_dispatch` input `chart_only=true` on a branch. It runs only the scoped provider
+check above, skips every image build, and publishes the same branch-development version
+scheme with `appVersion: v0.3.0`. It also uploads the exact chart archive and its SHA256 as
+the `wallet-capture-chart` workflow artifact. No version tag or release is created:
+
+```bash
+gh workflow run publish.yml --ref <development-branch> -f chart_only=true
+```
+
+A normal push still runs the existing full workflows; if only this manual path is desired,
+use the repository's approved CI-skip commit convention before pushing. Resolve and pin
+the resulting OCI manifest digest and raw archive SHA256 in the consumer workload
+contract. The archive checksum and OCI manifest digest are different identities; never
+substitute one for the other or fetch controller traffic from an unverified checkout.
+For a remote syntax/contract check without publishing, copy the branch checkout to the
+existing verification host and run only the scoped command above. Do not install a new
+cluster, build images, run the full smoke workflow or alter live demo deployments for this
+provider-side check.
 
 Layout, invariants and how to add a flow: `AGENTS.md`.
