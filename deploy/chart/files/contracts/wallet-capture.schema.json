@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Successful wallet-capture control response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "run", "gateway_pod", "started_unix_nano", "finished_unix_nano", "exchanges", "upload_bytes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "mode": {"enum": ["wallet", "burst"]},
+    "run": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"},
+    "gateway_pod": {"type": "string", "minLength": 1},
+    "started_unix_nano": {"type": "integer", "minimum": 1},
+    "finished_unix_nano": {"type": "integer", "minimum": 1},
+    "upload_bytes": {"type": "integer"},
+    "exchanges": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/exchange"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"const": "wallet"}}},
+      "then": {"properties": {"upload_bytes": {"const": 4194304}, "exchanges": {"minItems": 6, "maxItems": 6}}},
+      "else": {"properties": {"upload_bytes": {"const": 19922944}, "exchanges": {"minItems": 15, "maxItems": 15, "items": {"required": ["request_bytes", "response_body"]}}}}
+    }
+  ],
+  "$defs": {
+    "exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "method", "path", "status"],
+      "properties": {
+        "sequence": {"type": "integer", "minimum": 0, "maximum": 14},
+        "method": {"enum": ["GET", "POST"]},
+        "path": {"enum": ["/statements", "/session", "/profile", "/payments", "/payments/form"]},
+        "status": {"const": 200},
+        "request_bytes": {"type": "integer", "minimum": 0},
+        "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "accepted_bytes": {"enum": [1048576, 3145728]},
+        "response_body": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"path": {"const": "/statements"}}},
+          "then": {"required": ["request_bytes", "request_sha256", "accepted_bytes"], "properties": {"method": {"const": "POST"}, "request_bytes": {"enum": [1048576, 3145728]}}}
+        },
+        {
+          "if": {"properties": {"path": {"const": "/profile"}}},
+          "then": {"required": ["request_bytes"], "properties": {"method": {"const": "GET"}, "request_bytes": {"const": 0}}}
+        }
+      ]
+    }
+  }
+}

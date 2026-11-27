@@ -14,6 +14,8 @@ global:
 
 # Fixed functional workloads and their original protocol clients. Opt in with the bundled
 # values-functional.yaml preset; fixture selection rejects generic workload settings.
+# wallet-capture is externally controlled, has no interval/marker settings and pins
+# gateway, wallet and client-python to v0.3.0 regardless of the chart appVersion.
 fixture:
   name: ""
   markerPrefix: ""

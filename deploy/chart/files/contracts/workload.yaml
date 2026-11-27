@@ -18,6 +18,7 @@ functional:
     http-markers: {markerPrefix: true, markerCount: true, readiness: traffic-success}
     resilience-traffic: {markerPrefix: true, readiness: traffic-success}
     targeting-pair: {readiness: traffic-success}
+    wallet-capture: {readiness: traffic-success}
     go-stripped-traefik: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
     go-crypto-tls-bifrost: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
     boringssl-envoy: {markerPrefix: true, markerCount: true, interval: true, readiness: traffic-success}
@@ -30,7 +31,7 @@ functional:
     kfl-tls-capture: {readiness: traffic-success}
 readiness:
   runner-each-flow-success: HTTP 200 from every configured flow loop since startup or interval change; config must be valid and nonempty
-  traffic-success: Existing traffic loop completed a successful HTTP request, Redis operation sequence, Kafka three-message delivery batch or database marker batch since container startup
+  traffic-success: A successful HTTP request, Redis operation sequence, Kafka three-message delivery batch or database marker batch since container startup; wallet-capture uses only dedicated wallet and gateway health requests until explicitly triggered
   language-clients: Existing loop completed both HTTPS flow and database or gRPC operation successfully in the same iteration since container startup
 corpus:
   flows: [catalog, inventory, orders, graphql, websocket, identity, wallet, telco, netprobe]

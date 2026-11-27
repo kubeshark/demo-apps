@@ -8,6 +8,11 @@ on:
     branches: ['**']
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      chart_only:
+        description: Run wallet-capture checks and publish only a development chart with v0.3.0 images
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -18,7 +23,7 @@ env:
 
 jobs:
   images:
-    if: vars.AWS_ROLE_ARN != ''
+    if: vars.AWS_ROLE_ARN != '' && !inputs.chart_only
     runs-on: ubuntu-latest
     outputs:
       image-tag: ${{ steps.tag.outputs.tag }}
@@ -83,3 +88,43 @@ jobs:
           aws ecr-public get-login-password | helm registry login --username AWS --password-stdin public.ecr.aws
           helm package deploy/chart --version "$VERSION" --app-version "$IMAGE_TAG"
           helm push "demo-apps-$VERSION.tgz" "oci://$REGISTRY/kubeshark/charts"
+
+  chart-only:
+    if: github.event_name == 'workflow_dispatch' && inputs.chart_only && vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: azure/setup-helm@v4
+      - name: Validate controlled capture fixture
+        run: |
+          test "$GITHUB_REF_TYPE" = branch
+          go test ./hack/chartcontract -run '^(TestWalletCaptureFixture|TestPackagedWorkloadContract)$' -count=1 -timeout=90s
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Package and push development chart only
+        run: |
+          branch=$(printf '%s' "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9-' '-')
+          branch=${branch:0:100}
+          branch=${branch#-}
+          branch=${branch%-}
+          branch=${branch:-dev}
+          if [[ "$branch" =~ ^[0-9]+$ ]]; then branch="branch-$branch"; fi
+          version="0.3.1-$branch.g${GITHUB_SHA::7}"
+          helm package deploy/chart --version "$version" --app-version v0.3.0
+          sha256sum "demo-apps-$version.tgz" > "demo-apps-$version.tgz.sha256"
+          aws ecr-public get-login-password | helm registry login --username AWS --password-stdin public.ecr.aws
+          helm push "demo-apps-$version.tgz" "oci://$REGISTRY/kubeshark/charts"
+          printf 'Chart version: `%s`\n\nApplication images: `v0.3.0`\n\n' "$version" >> "$GITHUB_STEP_SUMMARY"
+          cat "demo-apps-$version.tgz.sha256" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wallet-capture-chart
+          path: |
+            demo-apps-*.tgz
+            demo-apps-*.tgz.sha256
